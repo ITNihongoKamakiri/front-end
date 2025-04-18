@@ -120,14 +120,12 @@ const ApartmentManagement: React.FC = () => {
                         onChange={() => setSelectedFloor('all')}
                     />
                     <label htmlFor="all-floors">Tất cả các phòng</label>
-                    <span className="filter-number">(1)</span>
                 </div>
 
                 {floors.map(floor => (
                     <div key={floor} className="floor-row">
                         <h2 className="floor-title">
                             Tầng {floor}
-                            {floor === 3 && <span className="filter-number">(2)</span>}
                         </h2>
                         <div className="rooms-container">
                             {apartmentData.rooms

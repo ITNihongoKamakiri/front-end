@@ -83,7 +83,7 @@ const TenantManagement: React.FC = () => {
                 className={`tenant-list-item ${selectedTenantId === tenant.id ? 'active' : ''}`}
                 onClick={() => setSelectedTenantId(tenant.id)}
               >
-                <span className="tenant-number">({index + 1})</span> Người {index + 1}
+                Người {index + 1}
               </div>
             ))}
           </div>
@@ -92,32 +92,27 @@ const TenantManagement: React.FC = () => {
           <div className="tenant-details">
             <div className="tenant-info">
               <div className="tenant-info-field">
-                <span className="field-number">(4)</span>
                 <label>Họ và Tên</label>
                 <div className="info-value">{selectedTenant.name}</div>
               </div>
               
               <div className="tenant-info-field">
-                <span className="field-number">(5)</span>
                 <label>Địa chỉ</label>
                 <div className="info-value">{selectedTenant.address}</div>
               </div>
               
               <div className="tenant-info-field">
-                <span className="field-number">(6)</span>
                 <label>SĐT</label>
                 <div className="info-value">{selectedTenant.phone}</div>
               </div>
               
               <div className="tenant-info-field">
-                <span className="field-number">(7)</span>
                 <label>Ngày sinh</label>
                 <div className="info-value">{selectedTenant.birthdate}</div>
               </div>
             </div>
             
             <div className="tenant-photo">
-              <span className="photo-number">(8)</span>
               <div className="photo-container">
                 {selectedTenant.image ? (
                   <img src={selectedTenant.image} alt={selectedTenant.name} />
