@@ -3,7 +3,6 @@ import { User } from 'lucide-react';
 import '../styles/TenantManagement.css';
 import apartmentImage from '../assets/images/profile_default.png';
 
-// Interface cho dữ liệu người thuê
 interface Tenant {
   id: string;
   name: string;
@@ -14,7 +13,6 @@ interface Tenant {
 }
 
 const TenantManagement: React.FC = () => {
-  // Dữ liệu mẫu cho người thuê
   const tenants: Tenant[] = [
     {
       id: '1',
