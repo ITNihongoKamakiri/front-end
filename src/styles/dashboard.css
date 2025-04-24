@@ -562,5 +562,114 @@ body {
   cursor: not-allowed;
 }
 
+/* edit button */
+/* Thêm style cho nút edit */
+.edit-button {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background-color: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  z-index: 1;
+}
 
+.edit-button:hover {
+  background-color: #f3f4f6;
+}
+
+/* Thêm position relative cho apartment-card-content */
+.apartment-card-content {
+  position: relative;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* Thêm style cho edit success */
+
+.success-message {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: #10B981;
+  color: white;
+  padding: 12px 24px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  z-index: 1100;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  animation: slideDown 0.3s ease-out forwards, fadeOut 0.5s ease-out 2.5s forwards;
+}
+
+.success-message::before {
+  content: '✓';
+  font-size: 16px;
+  font-weight: bold;
+}
+
+@keyframes slideDown {
+  0% {
+    top: -50px;
+    opacity: 0;
+  }
+  100% {
+    top: 20px;
+    opacity: 1;
+  }
+}
+
+@keyframes fadeOut {
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* Thêm style cho message khi hiển thị trên mobile */
+@media (max-width: 640px) {
+  .success-message {
+    width: 90%;
+    max-width: 320px;
+    font-size: 14px;
+    padding: 10px 16px;
+  }
+}
+
+/* Thêm class cho error message để đồng nhất */
+.error-message {
+  padding: 12px 16px;
+  background-color: #FEE2E2;
+  color: #EF4444;
+  border: 1px solid #FECACA;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 1280px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.error-message::before {
+  content: '✕';
+  font-weight: bold;
+}
 
