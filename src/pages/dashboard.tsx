@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, User, Mail, LogOut, Eye, Plus, SlidersHorizontal, X, Upload, Image, Trash2 } from 'lucide-react';
+import { Search, User, Mail, LogOut, Eye, Plus, SlidersHorizontal, X, Upload, Image, Trash2, Check } from 'lucide-react';
 import '../styles/dashboard.css';
 import apartmentImage from '../assets/images/apartment.png';
 import { ApartmentBuilding, fetchApartmentsByOwner, createApartment } from '../service/apartment_building.service';
 import { uploadImageToCloudinary } from '../service/cloudinary.service';
-
+import { Edit } from 'lucide-react';
+import { ApartmentBuildingUpdateRequest, updateApartmentBuilding } from '../service/apartment_building.service';
 
 interface Apartment {
   id: string;
@@ -26,6 +27,15 @@ const Dashboard: React.FC = () => {
   const [apartments, setApartments] = useState<Apartment[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Thêm các state trong Dashboard component
+  const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
+  const [selectedApartment, setSelectedApartment] = useState<Apartment | null>(null);
+  const [editedApartment, setEditedApartment] = useState<NewApartmentForm>({
+    name: '',
+    address: '',
+    image: ''
+  });
 
   // States cho modal thêm căn hộ
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
@@ -224,6 +234,100 @@ const Dashboard: React.FC = () => {
     setError(null);
   };
 
+
+  //update apartment
+
+  // Hàm mở modal chỉnh sửa
+  const handleOpenEditModal = (apartment: Apartment, e: React.MouseEvent) => {
+    e.stopPropagation(); // Ngăn chặn event bubbling lên thẻ cha
+    setSelectedApartment(apartment);
+    setEditedApartment({
+      name: apartment.name,
+      address: apartment.address || '',
+      image: apartment.imageUrl
+    });
+    setPreviewUrl(apartment.imageUrl !== apartmentImage ? apartment.imageUrl : null);
+    setIsEditModalOpen(true);
+    setError(null);
+  };
+
+  // Hàm đóng modal chỉnh sửa
+  const handleCloseEditModal = () => {
+    setIsEditModalOpen(false);
+    setSelectedApartment(null);
+    setEditedApartment({
+      name: '',
+      address: '',
+      image: ''
+    });
+    setSelectedFile(null);
+    setPreviewUrl(null);
+    setUploadProgress(0);
+    setError(null);
+  };
+
+  // Hàm xử lý submit form chỉnh sửa
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!selectedApartment) return;
+
+    // Kiểm tra dữ liệu
+    if (!editedApartment.name || !editedApartment.address) {
+      setError('Vui lòng nhập đầy đủ tên và địa chỉ căn hộ');
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      // Upload ảnh mới nếu có
+      let imageUrl = editedApartment.image;
+      if (selectedFile) {
+        setIsUploading(true);
+        try {
+          imageUrl = await uploadImageToCloudinary(selectedFile, (progress) => {
+            setUploadProgress(progress);
+          });
+          setIsUploading(false);
+          setUploadProgress(0);
+        } catch (uploadError) {
+          setError('Có lỗi xảy ra khi tải ảnh lên. Vui lòng thử lại.');
+          setIsUploading(false);
+          setLoading(false);
+          return;
+        }
+      }
+
+      // Gọi API để cập nhật thông tin
+      const response = await updateApartmentBuilding({
+        id: parseInt(selectedApartment.id),
+        name: editedApartment.name,
+        address: editedApartment.address,
+        image: imageUrl
+      });
+
+      // Đóng modal
+      handleCloseEditModal();
+
+      // Hiển thị thông báo thành công
+      setSuccessMessage('Cập nhật thông tin căn hộ thành công!');
+
+      // Tự động ẩn thông báo sau 3 giây
+      setTimeout(() => {
+        setSuccessMessage(null);
+      }, 3000);
+
+      // Tải lại danh sách căn hộ
+      await loadApartments();
+    } catch (err) {
+      setError('Có lỗi xảy ra khi cập nhật thông tin căn hộ. Vui lòng thử lại.');
+      console.error('Error updating apartment:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="dashboard-container">
       {/* Navigation Bar */}
@@ -252,7 +356,7 @@ const Dashboard: React.FC = () => {
           </button>
         </div>
       </div>
-  
+
       {/* Filter Section */}
       <div className="filter-section">
         <div className="filter-left">
@@ -270,25 +374,34 @@ const Dashboard: React.FC = () => {
           </button>
         </div>
       </div>
-  
-      {/* Success message */}
+
       {successMessage && (
-        <div className="success-message">{successMessage}</div>
+        <div className="success-message">
+          <Check size={18} strokeWidth={3} />
+          {successMessage}
+        </div>
       )}
-  
+
       {/* Error message if any */}
       {error && <div className="error-message">{error}</div>}
-  
+
       {/* Loading indicator */}
       {loading && apartments.length === 0 && (
         <div className="loading-message">Đang tải dữ liệu...</div>
       )}
-  
+
       {/* Apartment Cards Grid */}
       <div className="apartment-grid">
         {apartments.map((apartment) => (
           <div key={apartment.id} className="apartment-card">
             <div className="apartment-card-content" onClick={() => window.location.href = `/apartments/${apartment.id}`}>
+
+              <button
+                className="edit-button"
+                onClick={(e) => handleOpenEditModal(apartment, e)}
+              >
+                <Edit size={16} />
+              </button>
               <div className="image-container">
                 <div className="image-wrapper">
                   <img
@@ -323,7 +436,7 @@ const Dashboard: React.FC = () => {
           </div>
         ))}
       </div>
-  
+
       {/* Modal thêm căn hộ */}
       {isModalOpen && (
         <div className="modal-overlay">
@@ -348,7 +461,7 @@ const Dashboard: React.FC = () => {
                     required
                   />
                 </div>
-                
+
                 <div className="form-group">
                   <label htmlFor="address">Địa chỉ <span className="required">*</span></label>
                   <textarea
@@ -360,7 +473,7 @@ const Dashboard: React.FC = () => {
                     required
                   ></textarea>
                 </div>
-                
+
                 <div className="form-group">
                   <label>Hình ảnh</label>
                   <div className="image-upload-container">
@@ -372,7 +485,7 @@ const Dashboard: React.FC = () => {
                       className="file-upload-input"
                       accept="image/*"
                     />
-                    
+
                     {!previewUrl && (
                       <label htmlFor="image-upload" className="image-upload-label">
                         <Upload className="image-upload-icon" size={36} />
@@ -381,28 +494,28 @@ const Dashboard: React.FC = () => {
                         <p className="image-upload-small">PNG, JPG, JPEG (tối đa 5MB)</p>
                       </label>
                     )}
-                    
+
                     {previewUrl && (
                       <div className="image-preview">
                         <img src={previewUrl} alt="Preview" />
                         <div className="image-preview-info">
                           <span className="image-preview-name">
-                            {selectedFile?.name} ({(selectedFile?.size || 0) / 1024 < 1000 
-                              ? `${Math.round((selectedFile?.size || 0) / 1024)} KB` 
+                            {selectedFile?.name} ({(selectedFile?.size || 0) / 1024 < 1000
+                              ? `${Math.round((selectedFile?.size || 0) / 1024)} KB`
                               : `${Math.round((selectedFile?.size || 0) / 1024 / 1024 * 10) / 10} MB`})
                           </span>
-                          <button 
-                            type="button" 
+                          <button
+                            type="button"
                             className="image-preview-remove"
                             onClick={handleRemoveFile}
                           >
                             <Trash2 size={14} /> Xóa
                           </button>
                         </div>
-                        
+
                         {isUploading && (
                           <div className="image-upload-progress">
-                            <div 
+                            <div
                               className="image-upload-progress-bar"
                               style={{ width: `${uploadProgress}%` }}
                             ></div>
@@ -412,14 +525,14 @@ const Dashboard: React.FC = () => {
                     )}
                   </div>
                 </div>
-                
+
                 <div className="form-actions">
                   <button type="button" className="cancel-button" onClick={handleCloseModal}>
                     Hủy
                   </button>
-                  <button 
-                    type="submit" 
-                    className="submit-button" 
+                  <button
+                    type="submit"
+                    className="submit-button"
                     disabled={isUploading || loading}
                   >
                     {isUploading ? 'Đang tải lên...' : 'Tạo căn hộ'}
@@ -430,7 +543,7 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
       )}
-      
+
       {/* Modal xác nhận */}
       {isConfirmOpen && (
         <div className="modal-overlay">
@@ -443,13 +556,119 @@ const Dashboard: React.FC = () => {
               <button className="cancel-button" onClick={() => setIsConfirmOpen(false)}>
                 Hủy
               </button>
-              <button 
-                className="confirm-button" 
+              <button
+                className="confirm-button"
                 onClick={handleConfirmCreate}
                 disabled={isUploading || loading}
               >
                 {loading ? 'Đang xử lý...' : 'Xác nhận'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+
+      {/* Modal chỉnh sửa căn hộ */}
+      {isEditModalOpen && selectedApartment && (
+        <div className="modal-overlay">
+          <div className="modal-container">
+            <div className="modal-header">
+              <h2>Chỉnh sửa thông tin căn hộ</h2>
+              <button className="close-button" onClick={handleCloseEditModal}>
+                <X size={20} />
+              </button>
+            </div>
+            <div className="modal-body">
+              <form onSubmit={handleEditSubmit}>
+                <div className="form-group">
+                  <label htmlFor="edit-name">Tên căn hộ <span className="required">*</span></label>
+                  <input
+                    type="text"
+                    id="edit-name"
+                    name="name"
+                    value={editedApartment.name}
+                    onChange={(e) => setEditedApartment({ ...editedApartment, name: e.target.value })}
+                    placeholder="Nhập tên căn hộ"
+                    required
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="edit-address">Địa chỉ <span className="required">*</span></label>
+                  <textarea
+                    id="edit-address"
+                    name="address"
+                    value={editedApartment.address}
+                    onChange={(e) => setEditedApartment({ ...editedApartment, address: e.target.value })}
+                    placeholder="Nhập địa chỉ căn hộ"
+                    required
+                  ></textarea>
+                </div>
+
+                <div className="form-group">
+                  <label>Hình ảnh</label>
+                  <div className="image-upload-container">
+                    <input
+                      type="file"
+                      id="edit-image-upload"
+                      ref={fileInputRef}
+                      onChange={handleFileChange}
+                      className="file-upload-input"
+                      accept="image/*"
+                    />
+
+                    {!previewUrl && (
+                      <label htmlFor="edit-image-upload" className="image-upload-label">
+                        <Upload className="image-upload-icon" size={36} />
+                        <p className="image-upload-text">Nhấp để chọn hình ảnh</p>
+                        <p className="image-upload-small">hoặc kéo thả file vào đây</p>
+                        <p className="image-upload-small">PNG, JPG, JPEG (tối đa 5MB)</p>
+                      </label>
+                    )}
+
+                    {previewUrl && (
+                      <div className="image-preview">
+                        <img src={previewUrl} alt="Preview" />
+                        <div className="image-preview-info">
+                          <span className="image-preview-name">
+                            {selectedFile?.name || "Ảnh hiện tại"}
+                          </span>
+                          <button
+                            type="button"
+                            className="image-preview-remove"
+                            onClick={handleRemoveFile}
+                          >
+                            <Trash2 size={14} /> Xóa
+                          </button>
+                        </div>
+
+                        {isUploading && (
+                          <div className="image-upload-progress">
+                            <div
+                              className="image-upload-progress-bar"
+                              style={{ width: `${uploadProgress}%` }}
+                            ></div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="form-actions">
+                  <button type="button" className="cancel-button" onClick={handleCloseEditModal}>
+                    Hủy
+                  </button>
+                  <button
+                    type="submit"
+                    className="submit-button"
+                    disabled={isUploading || loading}
+                  >
+                    {isUploading ? 'Đang tải lên...' : 'Lưu thay đổi'}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         </div>

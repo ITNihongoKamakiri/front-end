@@ -28,6 +28,13 @@ export interface ApiResponse<T> {
     data: T;
 }
 
+export interface ApartmentBuildingUpdateRequest {
+    id: number;
+    name?: string;
+    image?: string;
+    address?: string;
+}
+
 export const fetchApartmentsByOwner = async (ownerId: number): Promise<ApartmentBuilding[]> => {
     try {
         const response = await axios.get<ApiResponse<ApartmentBuilding[]>>(
@@ -59,6 +66,29 @@ export const createApartment = async (
         return null;
     } catch (error) {
         console.error('Error creating apartment:', error);
+        throw error;
+    }
+};
+
+
+export const updateApartmentBuilding = async (
+    apartmentData: ApartmentBuildingUpdateRequest
+): Promise<ApartmentBuilding | null> => {
+    try {
+        const response = await axios.put<ApiResponse<ApartmentBuilding>>(
+            `${API_BASE_URL}/apartment-building/${apartmentData.id}`,
+            apartmentData
+        );
+
+        if (response.data.success) {
+            console.log('Apartment updated successfully:', response.data.data);
+            return response.data.data;
+        }
+
+        console.error('Failed to update apartment:', response.data.message);
+        return null;
+    } catch (error) {
+        console.error('Error updating apartment:', error);
         throw error;
     }
 };
