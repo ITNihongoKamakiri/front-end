@@ -328,7 +328,9 @@ const ApartmentManagement: React.FC = () => {
             <div className="floor-filter">
                 {floors.map((floor) => (
                     <div key={floor} className="floor-row">
+
                         <h2 className="floor-title">Tầng {floor}</h2>
+
                         <div className="rooms-container">
                             {filteredRooms
                                 .filter((room) => room.floor === floor)
