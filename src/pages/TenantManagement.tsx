@@ -1,126 +1,136 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { User } from 'lucide-react';
 import '../styles/TenantManagement.css';
-import apartmentImage from '../assets/images/profile_default.png';
+import axios from 'axios';
 
 interface Tenant {
-  id: string;
-  name: string;
-  address: string;
-  phone: string;
-  birthdate: string;
-  image?: string;
+  id: number;
+  fullName: string;
+  avatar?: string;
+  gender?: 'MALE' | 'FEMALE' | 'OTHER';
+  idCardNumber?: string;
+  permanentAddress: string;
+  phoneNumber: string;
 }
 
+const getGenderLabel = (gender?: string): string => {
+  switch (gender) {
+    case 'MALE':
+      return 'Nam';
+    case 'FEMALE':
+      return 'Nữ';
+    case 'OTHER':
+      return 'Khác';
+    default:
+      return 'Không rõ';
+  }
+};
+
 const TenantManagement: React.FC = () => {
-  const tenants: Tenant[] = [
-    {
-      id: '1',
-      name: 'Nguyễn Văn A',
-      address: '123 Đường Lê Lợi, Quận 1, TP. Hồ Chí Minh',
-      phone: '0901234567',
-      birthdate: '01/01/1990',
-      image: apartmentImage
-    },
-    {
-      id: '2',
-      name: 'Trần Thị B',
-      address: '456 Đường Nguyễn Huệ, Quận 1, TP. Hồ Chí Minh',
-      phone: '0907654321',
-      birthdate: '15/05/1992',
-      image: apartmentImage
-    },
-    {
-      id: '3',
-      name: 'Lê Văn C',
-      address: '789 Đường Cách Mạng Tháng 8, Quận 3, TP. Hồ Chí Minh',
-      phone: '0912345678',
-      birthdate: '22/12/1985',
-      image: undefined
-    },
-  ];
+  const [tenants, setTenants] = useState<Tenant[]>([]);
+  const [selectedTenantId, setSelectedTenantId] = useState<number | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
 
-  // State để lưu trữ ID của người thuê được chọn
-  const [selectedTenantId, setSelectedTenantId] = useState<string>(tenants[0].id);
+  useEffect(() => {
+    axios.get('http://localhost:8080/api/tenants')
+      .then(res => {
+        setTenants(res.data);
+        if (res.data.length > 0) {
+          setSelectedTenantId(res.data[0].id);
+        }
+      })
+      .catch(err => {
+        console.error('Lỗi khi lấy danh sách người thuê:', err);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }, []);
 
-  // Tìm người thuê được chọn từ danh sách
-  const selectedTenant = tenants.find(tenant => tenant.id === selectedTenantId) || tenants[0];
+  const selectedTenant = tenants.find(t => t.id === selectedTenantId);
 
   return (
     <div className="tenant-management-container">
       {/* Sidebar */}
       <div className="sidebar">
-        <div className="sidebar-item">
-          <span>QL Hợp đồng</span>
-        </div>
-        <div className="sidebar-item">
-          <span>QL thanh toán</span>
-        </div>
-        <div className="sidebar-item">
-          <span>QL nội thất</span>
-        </div>
-        <div className="sidebar-item">
-          <span>Cài đặt</span>
-        </div>
+        <div className="sidebar-item">QL Hợp đồng</div>
+        <div className="sidebar-item">QL thanh toán</div>
+        <div className="sidebar-item">QL nội thất</div>
+        <div className="sidebar-item">Cài đặt</div>
       </div>
 
       {/* Main content */}
       <div className="main-content">
-        {/* Header */}
         <div className="main-header">
           <h1>Quản lý người thuê</h1>
         </div>
 
-        {/* Content wrapper */}
         <div className="content-wrapper">
-          {/* Tenant list column */}
+          {/* Danh sách người thuê */}
           <div className="tenants-list">
-            {tenants.map((tenant, index) => (
-              <div 
-                key={tenant.id} 
-                className={`tenant-list-item ${selectedTenantId === tenant.id ? 'active' : ''}`}
-                onClick={() => setSelectedTenantId(tenant.id)}
-              >
-                Người {index + 1}
-              </div>
-            ))}
+            {loading ? (
+              <div>Đang tải danh sách...</div>
+            ) : tenants.length === 0 ? (
+              <div>Không có người thuê nào</div>
+            ) : (
+              tenants.map((tenant, index) => (
+                <div 
+                  key={tenant.id} 
+                  className={`tenant-list-item ${tenant.id === selectedTenantId ? 'active' : ''}`}
+                  onClick={() => setSelectedTenantId(tenant.id)}
+                >
+                  Người {index + 1}
+                </div>
+              ))
+            )}
           </div>
 
-          {/* Tenant details */}
+          {/* Chi tiết người thuê */}
           <div className="tenant-details">
-            <div className="tenant-info">
-              <div className="tenant-info-field">
-                <label>Họ và Tên</label>
-                <div className="info-value">{selectedTenant.name}</div>
-              </div>
-              
-              <div className="tenant-info-field">
-                <label>Địa chỉ</label>
-                <div className="info-value">{selectedTenant.address}</div>
-              </div>
-              
-              <div className="tenant-info-field">
-                <label>SĐT</label>
-                <div className="info-value">{selectedTenant.phone}</div>
-              </div>
-              
-              <div className="tenant-info-field">
-                <label>Ngày sinh</label>
-                <div className="info-value">{selectedTenant.birthdate}</div>
-              </div>
-            </div>
-            
-            <div className="tenant-photo">
-              <div className="photo-container">
-                {selectedTenant.image ? (
-                  <img src={selectedTenant.image} alt={selectedTenant.name} />
-                ) : (
-                  <div className="default-photo">
-                    <User size={48} />
+            {selectedTenant ? (
+              <>
+                <div className="tenant-info">
+                  <div className="tenant-info-field">
+                    <label>Họ và Tên</label>
+                    <div className="info-value">{selectedTenant.fullName}</div>
                   </div>
-                )}
-              </div>
-            </div>
+
+                  <div className="tenant-info-field">
+                    <label>Địa chỉ</label>
+                    <div className="info-value">{selectedTenant.permanentAddress}</div>
+                  </div>
+
+                  <div className="tenant-info-field">
+                    <label>SĐT</label>
+                    <div className="info-value">{selectedTenant.phoneNumber}</div>
+                  </div>
+
+                  <div className="tenant-info-field">
+                    <label>Số CMND/CCCD</label>
+                    <div className="info-value">{selectedTenant.idCardNumber || 'Chưa có'}</div>
+                  </div>
+
+                  <div className="tenant-info-field">
+                    <label>Giới tính</label>
+                    <div className="info-value">{getGenderLabel(selectedTenant.gender)}</div>
+                  </div>
+                </div>
+
+                <div className="tenant-photo">
+                  <div className="photo-container">
+                    {selectedTenant.avatar ? (
+                      <img src={selectedTenant.avatar} alt={selectedTenant.fullName} />
+                    ) : (
+                      <div className="default-photo">
+                        <User size={48} />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div>Chưa có người thuê được chọn</div>
+            )}
           </div>
         </div>
       </div>
