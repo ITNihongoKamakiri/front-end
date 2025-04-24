@@ -35,7 +35,11 @@ const ApartmentManagement: React.FC = () => {
 
     useEffect(() => {
         console.log('Apartment ID from useParams:', id);
-        fetch('http://localhost:8080/api/rooms')
+        if (!id) {
+            setError('Không tìm thấy ID tòa nhà.');
+            return;
+        }
+        fetch(`http://localhost:8080/api/rooms?buildingId=${id}`)
             .then(res => {
                 if (!res.ok) throw new Error(`Failed to fetch rooms: ${res.statusText}`);
                 return res.json();
@@ -66,7 +70,7 @@ const ApartmentManagement: React.FC = () => {
                 console.error('Error fetching rooms:', err);
                 setError('Không thể tải danh sách phòng. Vui lòng thử lại sau.');
             });
-    }, []);
+    }, [id]);
 
     const filteredRooms = selectedFloor === 'all'
         ? rooms
@@ -133,7 +137,7 @@ const ApartmentManagement: React.FC = () => {
                 key => statusMap[key] === newRoom.status
             ) || 'EMPTY',
             baseRentAmount: newRoom.baseRentAmount,
-            buildingId: 1 // Default 1
+            buildingId: id
         };
 
         console.log('Submitting payload:', payload, 'for', selectedTab === 'add' ? 'POST' : `PUT /rooms/${newRoom.id}`);
@@ -307,14 +311,20 @@ const ApartmentManagement: React.FC = () => {
                                 </select>
                             </div>
                             <div className="form-group">
-                                <label>Giá thuê cơ bản:</label>
-                                <input
-                                    type="number"
-                                    value={newRoom.baseRentAmount}
-                                    onChange={(e) => setNewRoom({ ...newRoom, baseRentAmount: +e.target.value })}
-                                    className="form-input"
-                                    required
-                                />
+                            <label>Giá thuê cơ bản:</label>
+                            <input
+                                type="text" // Đổi từ "number" sang "text" để loại bỏ mũi tên
+                                value={newRoom.baseRentAmount || ''} // Cho phép xóa giá trị mặc định
+                                onChange={(e) => {
+                                const value = e.target.value;
+                                setNewRoom({ 
+                                    ...newRoom, 
+                                baseRentAmount: value === '' ? 0 : parseFloat(value) || 0 
+                            });
+                            }}
+                            className="form-input"
+                            placeholder="Nhập giá thuê cơ bản" // Thêm placeholder để hướng dẫn người dùng
+                            />
                             </div>
                             <div className="form-actions">
                                 <button type="button" className="cancel-button" onClick={closeModal}>Hủy</button>
@@ -328,9 +338,7 @@ const ApartmentManagement: React.FC = () => {
             <div className="floor-filter">
                 {floors.map((floor) => (
                     <div key={floor} className="floor-row">
-
                         <h2 className="floor-title">Tầng {floor}</h2>
-
                         <div className="rooms-container">
                             {filteredRooms
                                 .filter((room) => room.floor === floor)
