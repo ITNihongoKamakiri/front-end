@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { User, Mail, LogOut, Trash2 } from 'lucide-react';
 import { useParams } from 'react-router-dom';
 import '../styles/ApartmentManagement.css';
+import axios from 'axios';
+import { showSuccessToast, handleApiError } from '../utils/apiErrorHandler';
 
 interface Room {
     id: number;
@@ -15,6 +17,14 @@ const statusMap: Record<string, Room['status']> = {
     EMPTY: 'available',
     RENTED: 'occupied',
     REPAIRING: 'maintenance'
+};
+
+const API_BASE_URL = 'http://localhost:8080/api';
+
+export const deleteRoom = async (roomId: number): Promise<void> => {
+  console.log(`Gửi request xóa phòng ID: ${roomId} đến ${API_BASE_URL}/rooms/${roomId}`);
+  await axios.delete(`${API_BASE_URL}/rooms/${roomId}`);
+  console.log(`Xóa phòng ID: ${roomId} thành công`);
 };
 
 const ApartmentManagement: React.FC = () => {
@@ -236,29 +246,30 @@ const ApartmentManagement: React.FC = () => {
     const handleDeleteRoom = async () => {
         if (!roomToDelete) return;
 
+        console.log(`Đang gửi yêu cầu xóa phòng ID: ${roomToDelete.id} đến ${API_BASE_URL}/rooms/${roomToDelete.id}`);
+        
         try {
-            const response = await fetch(`http://localhost:8080/api/rooms/${roomToDelete.id}`, {
-                method: 'DELETE',
-                headers: { 'Content-Type': 'application/json' }
-            });
-
-            if (!response.ok) {
-                let errorMessage = response.statusText;
-                try {
-                    const errorData = await response.json();
-                    errorMessage = errorData.message || errorData.error || JSON.stringify(errorData);
-                } catch (jsonError) {
-                    console.error('Failed to parse error response:', jsonError);
-                }
-                throw new Error(`Failed to delete room: ${errorMessage}`);
+            const response = await axios.delete(`${API_BASE_URL}/rooms/${roomToDelete.id}`);
+            const responseData = response.data;
+            
+            if (responseData.success) {
+                // Xóa thành công, cập nhật danh sách phòng
+                setRooms(rooms.filter(room => room.id !== roomToDelete.id));
+                setError(null);
+                showSuccessToast('Xóa phòng thành công');
+            } else {
+                // API trả về lỗi dù status code là 200
+                const errorMessage = responseData.data?.message || responseData.message || 'Không thể xóa phòng. Vui lòng thử lại sau.';
+                console.error('API error when deleting room:', errorMessage);
+                handleApiError({ message: errorMessage });
+                setError(errorMessage);
             }
-
-            // Remove the deleted room from the state
-            setRooms(rooms.filter(room => room.id !== roomToDelete.id));
+        } catch (err) {
+            console.error('Network error when deleting room:', err);
+            handleApiError(err);
+            setError('Lỗi kết nối: Không thể liên hệ với máy chủ.');
+        } finally {
             closeDeleteModal();
-        } catch (err: any) {
-            console.error('Error deleting room:', err);
-            setError(`Lỗi xóa phòng: ${err.message}`);
         }
     };
 
@@ -371,9 +382,7 @@ const ApartmentManagement: React.FC = () => {
                         </form>
                     </div>
                 </div>
-            )}
-
-            {isDeleteModalVisible && roomToDelete && (
+            )}            {isDeleteModalVisible && roomToDelete && (
                 <div className="modal-overlay">
                     <div className="modal-content">
                         <div className="modal-header">
@@ -382,10 +391,27 @@ const ApartmentManagement: React.FC = () => {
                         </div>
                         <div className="delete-confirmation">
                             <p>Bạn có chắc chắn muốn xóa phòng <strong>{roomToDelete.roomNumber}</strong> tầng <strong>{roomToDelete.floor}</strong>?</p>
-                            <p className="warning">Lưu ý: Hành động này không thể hoàn tác!</p>
+                            <div className="warning-box">
+                                <div className="warning-icon">
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M12 9V14M12 21.41H5.23C2.05 21.41 0.65 18.58 2.17 15.79L5.62 9.67L8.8 4.07C10.4 1.15 13.6 1.15 15.2 4.07L18.38 9.67L21.83 15.79C23.35 18.58 21.94 21.41 18.77 21.41H12Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                                        <path d="M11.995 17H12.005" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                    </svg>
+                                </div>
+                                <div className="warning-text">
+                                    <p><strong>Lưu ý:</strong></p>
+                                    <ul>
+                                        <li>Hành động này không thể hoàn tác!</li>
+                                        <li>Không thể xóa phòng nếu có hợp đồng đang hoạt động.</li>
+                                    </ul>
+                                </div>
+                            </div>
                             <div className="form-actions">
                                 <button type="button" className="cancel-button" onClick={closeDeleteModal}>Hủy</button>
-                                <button type="button" className="delete-confirm-button" onClick={handleDeleteRoom}>Xóa</button>
+                                <button type="button" className="delete-confirm-button" onClick={handleDeleteRoom}>
+                                    <Trash2 size={16} style={{ marginRight: "8px" }} />
+                                    Xóa phòng
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -408,6 +434,13 @@ const ApartmentManagement: React.FC = () => {
                                     >
                                         <div className="room-door"><div className="door-handle"></div></div>
                                         <p className="room-number">{room.roomNumber}</p>
+                                        <button 
+                                            className="delete-room-button"
+                                            onClick={(e) => handleOpenDeleteModal(room, e)}
+                                            title="Xóa phòng"
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
                                     </div>
                                 ))}
                         </div>
