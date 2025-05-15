@@ -819,6 +819,36 @@ body {
 }
 
 
+/* Xóa hoặc ghi đè tất cả CSS trước đó cho nút edit */
+.apartment-card .edit-button {
+  position: absolute !important;
+  top: 10px !important;
+  right: 50px !important; /* Nút edit nằm bên trái nút delete */
+  background-color: white !important;
+  border: 1px solid #e5e7eb !important;
+  border-radius: 50% !important;
+  width: 32px !important;
+  height: 32px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  padding: 0 !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+  z-index: 10 !important; /* Đảm bảo hiển thị trên cùng */
+}
+
+.apartment-card .edit-button:hover {
+  background-color: #f0f9ff !important;
+  transform: translateY(-2px) !important;
+}
+
+.apartment-card .edit-button svg {
+  color: #3b82f6 !important;
+  stroke: #3b82f6 !important;
+  width: 16px !important;
+  height: 16px !important;
+}
 
 
 
