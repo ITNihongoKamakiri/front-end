@@ -125,7 +125,7 @@ export const updateContract = async (
 ): Promise<ContractResponse | null> => {
     try {
         const response = await axios.put<ApiResponse<ContractResponse>>(
-            `${API_BASE_URL}/contracts/${contract.id}`,
+            `${API_BASE_URL}/contracts`,
             contract
         );
         
@@ -148,9 +148,8 @@ export const updateContractImage = async (
     imageUrl: string
 ): Promise<ContractResponse | null> => {
     try {
-        const response = await axios.patch<ApiResponse<ContractResponse>>(
-            `${API_BASE_URL}/contracts/${contractId}/image`,
-            { imageUrl }
+        const response = await axios.post<ApiResponse<ContractResponse>>(
+            `${API_BASE_URL}/contracts/${contractId}/image?imageUrl=${encodeURIComponent(imageUrl)}`
         );
         
         if (!response.data.success) {

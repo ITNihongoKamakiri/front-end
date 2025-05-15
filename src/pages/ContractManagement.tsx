@@ -201,6 +201,7 @@ const ContractManagementInterface: React.FC<ContractManagementProps> = ({ roomId
     
     try {
       const url = await uploadImageToCloudinary(selectedFile, setUploadProgress);
+      console.log("Image uploaded to:", url);
       const updated = await updateContractImage(contract.id, url);
       showSuccessToast('Cập nhật ảnh hợp đồng thành công');
       setContract(updated);
