@@ -338,7 +338,7 @@ const ApartmentManagement: React.FC = () => {
                                     <div
                                         key={room.id}
                                         className="room-item"
-                                        onClick={() => (window.location.href = `/tenants/${room.id}`)}
+                                        onClick={() => (window.location.href = `/room/${room.id}`)}
                                         style={{ borderColor: getRoomStatusColor(room.status) }}
                                     >
                                         <div className="room-door"><div className="door-handle"></div></div>
