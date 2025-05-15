@@ -92,3 +92,26 @@ export const updateApartmentBuilding = async (
         throw error;
     }
 };
+
+export const deleteApartmentBuilding = async (id: number): Promise<boolean> => {
+    try {
+        const response = await axios.delete<ApiResponse<void>>(
+            `${API_BASE_URL}/apartment-building/${id}`
+        );
+
+        if (response.data.success) {
+            console.log('Apartment building deleted successfully');
+            return true;
+        }
+
+        console.error('Failed to delete apartment building:', response.data.message);
+        return false;
+    } catch (error) {
+        console.error('Error deleting apartment building:', error);
+        if (axios.isAxiosError(error) && error.response?.status === 409) {
+            // Xử lý lỗi conflict (tòa nhà vẫn có phòng đang hoạt động)
+            throw new Error('Không thể xóa tòa nhà này vì vẫn còn phòng đang hoạt động.');
+        }
+        throw error;
+    }
+};

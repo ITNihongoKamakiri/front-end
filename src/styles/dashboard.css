@@ -673,3 +673,153 @@ body {
   font-weight: bold;
 }
 
+
+/* Apartment card actions */
+.apartment-actions {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  gap: 8px;
+  z-index: 5;
+}
+
+.edit-button {
+  background-color: white;
+  border: none;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  transition: background-color 0.2s, transform 0.2s;
+}
+
+.edit-button:hover {
+  background-color: #f0f9ff;
+  transform: translateY(-2px);
+}
+
+
+
+
+
+/* Confirmation Modal */
+.confirm-modal {
+  background-color: white;
+  border-radius: 8px;
+  width: 400px;
+  max-width: 90%;
+  padding: 24px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+.confirm-message h3 {
+  margin-top: 0;
+  margin-bottom: 16px;
+  color: #1e293b;
+}
+
+.confirm-message p {
+  margin-bottom: 16px;
+  color: #4b5563;
+}
+
+.warning-text {
+  color: #ef4444;
+  font-size: 0.875rem;
+}
+
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.delete-confirm-button {
+  background-color: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 16px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.delete-confirm-button:hover {
+  background-color: #dc2626;
+}
+
+.delete-confirm-button:disabled {
+  background-color: #fca5a5;
+  cursor: not-allowed;
+}
+
+
+/* Apartment card actions */
+.apartment-card-content {
+  position: relative; /* Đảm bảo positioning hoạt động đúng */
+}
+
+.apartment-card .edit-button,
+
+
+.apartment-card .edit-button {
+  right: 50px; /* Đặt nút sửa bên phải */
+}
+
+
+
+.apartment-card .edit-button svg,
+
+
+.apartment-card .edit-button:hover {
+  background-color: #f0f9ff;
+}
+
+
+
+.apartment-card .edit-button svg {
+  color: #3b82f6; /* Màu xanh cho icon sửa */
+}
+
+
+/* CSS cho nút delete - thêm vào cuối file */
+.apartment-card .delete-button {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background-color: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  z-index: 10;
+}
+
+.apartment-card .delete-button:hover {
+  background-color: #fee2e2;
+  transform: translateY(-2px);
+}
+
+/* Điều chỉnh vị trí để edit và delete nằm cạnh nhau */
+.apartment-card .edit-button {
+  right: 50px; /* Đặt nút edit lùi sang trái */
+  z-index: 10; /* Đảm bảo hiển thị trên cùng */
+}
+
+
+
+
+
+

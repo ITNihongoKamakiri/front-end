@@ -2,11 +2,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Search, User, Mail, LogOut, Eye, Plus, SlidersHorizontal, X, Upload, Image, Trash2, Check } from 'lucide-react';
 import '../styles/dashboard.css';
 import apartmentImage from '../assets/images/apartment.png';
-import { ApartmentBuilding, fetchApartmentsByOwner, createApartment } from '../service/apartment_building.service';
+import { ApartmentBuilding, fetchApartmentsByOwner, createApartment, deleteApartmentBuilding } from '../service/apartment_building.service';
 import { uploadImageToCloudinary } from '../service/cloudinary.service';
 import { Edit } from 'lucide-react';
 import { ApartmentBuildingUpdateRequest, updateApartmentBuilding } from '../service/apartment_building.service';
-
 interface Apartment {
   id: string;
   name: string;
@@ -52,6 +51,9 @@ const Dashboard: React.FC = () => {
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [isUploading, setIsUploading] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  //state cho modal xóa căn hộ
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState<boolean>(false);
+  const [deletingApartment, setDeletingApartment] = useState<Apartment | null>(null);
 
   // State để lưu thông báo thành công
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -328,35 +330,51 @@ const Dashboard: React.FC = () => {
     }
   };
 
+  const handleOpenDeleteModal = (apartment: Apartment, e: React.MouseEvent) => {
+    e.stopPropagation(); // Ngăn chặn event bubbling lên thẻ cha
+    setDeletingApartment(apartment);
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleCloseDeleteModal = () => {
+    setIsDeleteModalOpen(false);
+    setDeletingApartment(null);
+  };
+
+  const handleDeleteApartment = async () => {
+    if (!deletingApartment) return;
+
+    try {
+      setLoading(true);
+      const success = await deleteApartmentBuilding(parseInt(deletingApartment.id));
+
+      if (success) {
+        // Cập nhật state để xóa căn hộ khỏi danh sách
+        setApartments(apartments.filter(apt => apt.id !== deletingApartment.id));
+
+        // Hiển thị thông báo thành công
+        setSuccessMessage('Xóa căn hộ thành công!');
+
+        // Tự động ẩn thông báo sau 3 giây
+        setTimeout(() => {
+          setSuccessMessage(null);
+        }, 3000);
+      }
+
+      // Đóng modal xác nhận
+      handleCloseDeleteModal();
+
+    } catch (err: any) {
+      setError(err.message || 'Có lỗi xảy ra khi xóa căn hộ. Vui lòng thử lại.');
+      console.error('Error deleting apartment:', err);
+      handleCloseDeleteModal();
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="dashboard-container">
-      {/* Navigation Bar */}
-      <div className="navbar">
-        <div className="navbar-left">
-          <div className="logo">Logo</div>
-          <div className="search-container">
-            <input
-              type="text"
-              placeholder="Thanh tìm kiếm"
-              className="search-input"
-            />
-            <Search className="search-icon" />
-          </div>
-        </div>
-        <div className="navbar-right">
-          <button className="icon-button">
-            <User className="h-6 w-6" style={{ color: '#4B5563' }} />
-          </button>
-          <button className="icon-button">
-            <Mail className="h-6 w-6" style={{ color: '#4B5563' }} />
-          </button>
-          <button className="logout-button">
-            <LogOut className="h-5 w-5" />
-            <span>Đăng xuất</span>
-          </button>
-        </div>
-      </div>
-
       {/* Filter Section */}
       <div className="filter-section">
         <div className="filter-left">
@@ -401,6 +419,29 @@ const Dashboard: React.FC = () => {
                 onClick={(e) => handleOpenEditModal(apartment, e)}
               >
                 <Edit size={16} />
+              </button>
+
+              <button
+                className="delete-button"
+                onClick={(e) => handleOpenDeleteModal(apartment, e)}
+                style={{ backgroundColor: 'white' }}
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#ef4444"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M3 6h18"></path>
+                  <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+                  <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+                  <line x1="10" x2="10" y1="11" y2="17"></line>
+                  <line x1="14" x2="14" y1="11" y2="17"></line>
+                </svg>
               </button>
               <div className="image-container">
                 <div className="image-wrapper">
@@ -669,6 +710,31 @@ const Dashboard: React.FC = () => {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal xác nhận xóa căn hộ */}
+      {isDeleteModalOpen && deletingApartment && (
+        <div className="modal-overlay">
+          <div className="confirm-modal">
+            <div className="confirm-message">
+              <h3>Xác nhận xóa căn hộ</h3>
+              <p>Bạn có chắc chắn muốn xóa căn hộ "{deletingApartment.name}" không?</p>
+              <p className="warning-text">Lưu ý: Nếu tòa nhà vẫn còn phòng đang hoạt động, bạn sẽ không thể xóa được.</p>
+            </div>
+            <div className="confirm-actions">
+              <button className="cancel-button" onClick={handleCloseDeleteModal}>
+                Hủy
+              </button>
+              <button
+                className="delete-confirm-button"
+                onClick={handleDeleteApartment}
+                disabled={loading}
+              >
+                {loading ? 'Đang xử lý...' : 'Xóa'}
+              </button>
             </div>
           </div>
         </div>
