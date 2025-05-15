@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { AlertCircle, CheckCircle2, Calendar, Upload } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Calendar, Upload, UserPlus, X } from 'lucide-react';
 import '../styles/ContractManagement.css';
 import { useParams } from 'react-router-dom';
 import {
@@ -8,10 +8,13 @@ import {
   getContractsByRoomId,
   updateContract,
   updateContractImage,
-  extendContract
+  extendContract,
+  createContract,
+  ContractCreateRequest
 } from '../service/contract.service';
 import { uploadImageToCloudinary } from '../service/cloudinary.service';
 import { handleApiError, showSuccessToast } from '../utils/apiErrorHandler';
+import { TenantCreateRequest, createTenant, getAllTenants, Tenant } from '../service/tenant.service';
 
 interface ContractManagementProps {
   roomId: number;
@@ -23,11 +26,23 @@ const ContractManagementInterface: React.FC<ContractManagementProps> = ({ roomId
   const [error, setError] = useState<string | null>(null);
   const [editMode, setEditMode] = useState(false);
   const [extendMode, setExtendMode] = useState(false);
+  const [createMode, setCreateMode] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Thêm state cho tạo người đại diện mới
+  const [showTenantModal, setShowTenantModal] = useState(false);
+  const [tenants, setTenants] = useState<Tenant[]>([]);
+  const [newTenant, setNewTenant] = useState<TenantCreateRequest>({
+    fullName: '',
+    phoneNumber: '',
+    permanentAddress: '',
+    idCardNumber: '',
+    gender: 'MALE'
+  });
 
   // Form states
   const [form, setForm] = useState({
@@ -38,6 +53,17 @@ const ContractManagementInterface: React.FC<ContractManagementProps> = ({ roomId
     contractNotes: '',
     representativeTenantId: 0
   });
+  
+  // Form tạo hợp đồng mới
+  const [createForm, setCreateForm] = useState({
+    startDate: new Date().toISOString().split('T')[0],
+    endDate: new Date(new Date().setMonth(new Date().getMonth() + 12)).toISOString().split('T')[0],
+    depositAmount: 0,
+    contractNotes: '',
+    representativeTenantId: 0
+  });
+
+  // Form gia hạn hợp đồng
   const [extendForm, setExtendForm] = useState({
     months: 0,
     years: 0,
@@ -77,6 +103,20 @@ const ContractManagementInterface: React.FC<ContractManagementProps> = ({ roomId
     
     fetchContract();
   }, [roomId]);
+
+  // Lấy danh sách người thuê
+  useEffect(() => {
+    const fetchTenants = async () => {
+      try {
+        const data = await getAllTenants();
+        setTenants(data);
+      } catch (err: any) {
+        console.error('Error fetching tenants:', err);
+      }
+    };
+    
+    fetchTenants();
+  }, []);
 
   // Handle form changes
   const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -265,6 +305,123 @@ const ContractManagementInterface: React.FC<ContractManagementProps> = ({ roomId
     if (editMode) setEditMode(false);
   };
 
+  // Toggle create mode
+  const toggleCreateMode = () => {
+    console.log("Toggle create mode");
+    setCreateMode(prevState => !prevState);
+    if (editMode) setEditMode(false);
+    if (extendMode) setExtendMode(false);
+  };
+
+  // Handle create form changes
+  const handleCreateFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setCreateForm(prev => ({ ...prev, [name]: name === 'depositAmount' ? parseFloat(value) : value }));
+  };
+
+  // Create new contract
+  const handleCreateContract = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!roomId) return;
+    
+    // Validate input
+    if (new Date(createForm.endDate) < new Date(createForm.startDate)) {
+      handleApiError(new Error('Ngày kết thúc phải sau ngày bắt đầu'));
+      return;
+    }
+    
+    if (createForm.depositAmount < 0) {
+      handleApiError(new Error('Tiền đặt cọc không thể là số âm'));
+      return;
+    }
+    
+    setLoading(true);
+    setError(null);
+    
+    try {
+      let imageUrl = undefined;
+      
+      if (selectedFile) {
+        setIsUploading(true);
+        imageUrl = await uploadImageToCloudinary(selectedFile, setUploadProgress);
+        setIsUploading(false);
+      }
+      
+      const payload: ContractCreateRequest = {
+        roomId: roomId,
+        representativeTenantId: createForm.representativeTenantId,
+        startDate: createForm.startDate,
+        endDate: createForm.endDate,
+        depositAmount: createForm.depositAmount,
+        contractNotes: createForm.contractNotes,
+        contractImageUrl: imageUrl
+      };
+      
+      console.log("Creating contract with payload:", payload);
+      const created = await createContract(payload);
+      showSuccessToast('Tạo hợp đồng thành công');
+      setContract(created);
+      setCreateMode(false);
+      setSelectedFile(null);
+    } catch (err: any) {
+      handleApiError(err, 'Có lỗi khi tạo hợp đồng.');
+    } finally {
+      setLoading(false);
+      setUploadProgress(0);
+    }
+  };
+
+  // Xử lý thay đổi trong form tạo người thuê mới
+  const handleTenantFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setNewTenant(prev => ({ ...prev, [name]: value }));
+  };
+
+  // Xử lý tạo người thuê mới
+  const handleCreateTenant = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Validate input
+    if (!newTenant.fullName || !newTenant.phoneNumber || !newTenant.permanentAddress) {
+      handleApiError(new Error('Vui lòng nhập đầy đủ thông tin bắt buộc'));
+      return;
+    }
+    
+    setLoading(true);
+    
+    try {
+      const created = await createTenant(newTenant);
+      showSuccessToast('Tạo người đại diện thành công');
+      
+      // Cập nhật danh sách người thuê
+      setTenants(prev => [...prev, created]);
+      
+      // Cập nhật ID người đại diện trong form tạo hợp đồng
+      setCreateForm(prev => ({ ...prev, representativeTenantId: created.id }));
+      
+      // Đóng modal
+      setShowTenantModal(false);
+      
+      // Reset form
+      setNewTenant({
+        fullName: '',
+        phoneNumber: '',
+        permanentAddress: '',
+        idCardNumber: '',
+        gender: 'MALE'
+      });
+    } catch (err: any) {
+      handleApiError(err, 'Có lỗi khi tạo người đại diện mới');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Toggle modal tạo người thuê
+  const toggleTenantModal = () => {
+    setShowTenantModal(prev => !prev);
+  };
+
   if (loading) return <div className="loading">Đang tải thông tin hợp đồng...</div>;
 
   return (
@@ -276,14 +433,318 @@ const ContractManagementInterface: React.FC<ContractManagementProps> = ({ roomId
         </div>
       )}
 
+      {/* Input file ẩn cho tất cả mọi nơi trong component */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        style={{ display: 'none' }}
+        onChange={handleFileChange}
+      />
+
+      {/* Modal tạo người đại diện mới */}
+      {showTenantModal && (
+        <div className="modal-overlay">
+          <div className="modal tenant-modal">
+            <div className="modal-header">
+              <h3>Thêm người đại diện mới</h3>
+              <button type="button" className="close-button" onClick={toggleTenantModal} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+                <X size={20} />
+              </button>
+            </div>
+            <div className="modal-body">
+              <form onSubmit={handleCreateTenant}>
+                <div className="form-group" style={{ marginBottom: '16px' }}>
+                  <label htmlFor="fullName" style={{ display: 'block', marginBottom: '8px' }}>
+                    Họ và tên <span style={{ color: '#ef4444' }}>*</span>
+                  </label>
+                  <input
+                    type="text"
+                    id="fullName"
+                    name="fullName"
+                    value={newTenant.fullName}
+                    onChange={handleTenantFormChange}
+                    className="form-control"
+                    required
+                    placeholder="Nhập họ và tên"
+                    style={{ width: '100%', padding: '8px 12px', borderRadius: '4px', border: '1px solid #d1d5db' }}
+                  />
+                </div>
+                
+                <div className="form-group" style={{ marginBottom: '16px' }}>
+                  <label htmlFor="idCardNumber" style={{ display: 'block', marginBottom: '8px' }}>
+                    Số CMND/CCCD
+                  </label>
+                  <input
+                    type="text"
+                    id="idCardNumber"
+                    name="idCardNumber"
+                    value={newTenant.idCardNumber}
+                    onChange={handleTenantFormChange}
+                    className="form-control"
+                    placeholder="Nhập số CMND/CCCD"
+                    style={{ width: '100%', padding: '8px 12px', borderRadius: '4px', border: '1px solid #d1d5db' }}
+                  />
+                </div>
+                
+                <div className="form-group" style={{ marginBottom: '16px' }}>
+                  <label htmlFor="phoneNumber" style={{ display: 'block', marginBottom: '8px' }}>
+                    Số điện thoại <span style={{ color: '#ef4444' }}>*</span>
+                  </label>
+                  <input
+                    type="tel"
+                    id="phoneNumber"
+                    name="phoneNumber"
+                    value={newTenant.phoneNumber}
+                    onChange={handleTenantFormChange}
+                    className="form-control"
+                    required
+                    placeholder="Nhập số điện thoại"
+                    style={{ width: '100%', padding: '8px 12px', borderRadius: '4px', border: '1px solid #d1d5db' }}
+                  />
+                </div>
+                
+                <div className="form-group" style={{ marginBottom: '16px' }}>
+                  <label htmlFor="gender" style={{ display: 'block', marginBottom: '8px' }}>Giới tính</label>
+                  <select
+                    id="gender"
+                    name="gender"
+                    value={newTenant.gender}
+                    onChange={handleTenantFormChange}
+                    className="form-control"
+                    style={{ width: '100%', padding: '8px 12px', borderRadius: '4px', border: '1px solid #d1d5db' }}
+                  >
+                    <option value="MALE">Nam</option>
+                    <option value="FEMALE">Nữ</option>
+                    <option value="OTHER">Khác</option>
+                  </select>
+                </div>
+                
+                <div className="form-group" style={{ marginBottom: '16px' }}>
+                  <label htmlFor="permanentAddress" style={{ display: 'block', marginBottom: '8px' }}>
+                    Địa chỉ thường trú <span style={{ color: '#ef4444' }}>*</span>
+                  </label>
+                  <input
+                    type="text"
+                    id="permanentAddress"
+                    name="permanentAddress"
+                    value={newTenant.permanentAddress}
+                    onChange={handleTenantFormChange}
+                    className="form-control"
+                    required
+                    placeholder="Nhập địa chỉ thường trú"
+                    style={{ width: '100%', padding: '8px 12px', borderRadius: '4px', border: '1px solid #d1d5db' }}
+                  />
+                </div>
+                
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '24px' }}>
+                  <button
+                    type="button"
+                    onClick={toggleTenantModal}
+                    style={{ 
+                      padding: '10px 16px', 
+                      backgroundColor: 'white', 
+                      border: '1px solid #d1d5db', 
+                      borderRadius: '4px', 
+                      cursor: 'pointer' 
+                    }}
+                  >
+                    Hủy
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    style={{ 
+                      padding: '10px 16px', 
+                      backgroundColor: '#3b82f6', 
+                      color: 'white', 
+                      border: 'none', 
+                      borderRadius: '4px', 
+                      cursor: 'pointer' 
+                    }}
+                  >
+                    {loading ? 'Đang lưu...' : 'Thêm người đại diện'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
       {!contract ? (
         <div className="no-contract">
-          <div className="message">
-            <Calendar size={48} />
-            <h3>Chưa có hợp đồng</h3>
-            <p>Phòng này chưa có hợp đồng. Vui lòng tạo hợp đồng mới.</p>
-          </div>
-          <button className="create-button">Tạo hợp đồng mới</button>
+          {createMode ? (
+            <div className="create-contract-form">
+              <h3>Tạo hợp đồng mới</h3>
+              <form onSubmit={handleCreateContract}>
+                <div className="form-group">
+                  <label htmlFor="startDate">Ngày bắt đầu</label>
+                  <input
+                    type="date"
+                    id="startDate"
+                    name="startDate"
+                    value={createForm.startDate}
+                    onChange={handleCreateFormChange}
+                    className="form-control"
+                    required
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="endDate">Ngày kết thúc</label>
+                  <input
+                    type="date"
+                    id="endDate"
+                    name="endDate"
+                    value={createForm.endDate}
+                    onChange={handleCreateFormChange}
+                    className="form-control"
+                    required
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="depositAmount">Tiền đặt cọc (VND)</label>
+                  <input
+                    type="number"
+                    id="depositAmount"
+                    name="depositAmount"
+                    value={createForm.depositAmount}
+                    onChange={handleCreateFormChange}
+                    min="0"
+                    className="form-control"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="representativeTenantId">Người đại diện</label>
+                  <div className="representative-selector">
+                    <select
+                      id="representativeTenantId"
+                      name="representativeTenantId"
+                      value={createForm.representativeTenantId}
+                      onChange={handleCreateFormChange}
+                      className="form-control representative-select"
+                      required
+                    >
+                      <option value="">-- Chọn người đại diện --</option>
+                      {tenants.map(tenant => (
+                        <option key={tenant.id} value={tenant.id}>
+                          {tenant.fullName} - {tenant.phoneNumber}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      className="add-tenant-button"
+                      onClick={toggleTenantModal}
+                    >
+                      <UserPlus size={16} />
+                      Thêm mới
+                    </button>
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="contractNotes">Ghi chú</label>
+                  <textarea
+                    id="contractNotes"
+                    name="contractNotes"
+                    value={createForm.contractNotes}
+                    onChange={handleCreateFormChange}
+                    className="form-control"
+                    rows={3}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Tải lên ảnh hợp đồng (nếu có)</label>
+                  <div
+                    className="extend-image-upload"
+                    onClick={!isUploading ? handleImageClick : undefined}
+                    style={{ 
+                      border: '2px dashed #d1d5db', 
+                      borderRadius: '8px', 
+                      padding: '20px', 
+                      display: 'flex', 
+                      flexDirection: 'column', 
+                      alignItems: 'center', 
+                      justifyContent: 'center',
+                      cursor: 'pointer',
+                      height: '200px',
+                      backgroundColor: '#f9fafb'
+                    }}
+                  >
+                    {selectedImage ? (
+                      <img
+                        src={selectedImage}
+                        alt="Contract document"
+                        className="preview-image"
+                        style={{ maxHeight: '160px', maxWidth: '100%', objectFit: 'contain' }}
+                      />
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', color: '#6b7280' }}>
+                        <Upload size={40} />
+                        <span>Tải lên ảnh hợp đồng</span>
+                      </div>
+                    )}
+                    {isUploading && (
+                      <div className="upload-overlay">
+                        <div className="progress-container">
+                          <div
+                            className="progress-bar"
+                            style={{ width: `${uploadProgress}%` }}
+                          ></div>
+                        </div>
+                        <div className="progress-text">{uploadProgress}%</div>
+                      </div>
+                    )}
+                  </div>
+                  {selectedFile && (
+                    <div style={{ 
+                      marginTop: '8px', 
+                      fontSize: '14px', 
+                      color: '#059669',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '4px'
+                    }}>
+                      <CheckCircle2 size={16} />
+                      <span>Đã chọn: {selectedFile.name}</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="form-actions">
+                  <button
+                    type="button"
+                    className="cancel-button"
+                    onClick={toggleCreateMode}
+                  >
+                    Hủy
+                  </button>
+                  <button
+                    type="submit"
+                    className="save-button"
+                    disabled={loading}
+                  >
+                    {loading ? 'Đang tạo...' : 'Tạo hợp đồng'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          ) : (
+            <>
+              <div className="message">
+                <Calendar size={48} />
+                <h3>Chưa có hợp đồng</h3>
+                <p>Phòng này chưa có hợp đồng. Vui lòng tạo hợp đồng mới.</p>
+              </div>
+              <button className="create-button" onClick={toggleCreateMode}>Tạo hợp đồng mới</button>
+            </>
+          )}
         </div>
       ) : (
         <div className="contract-container">
@@ -316,13 +777,6 @@ const ContractManagementInterface: React.FC<ContractManagementProps> = ({ roomId
                 </div>
               )}
             </div>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              style={{ display: 'none' }}
-              onChange={handleFileChange}
-            />
             {selectedFile && !isUploading && (
               <button
                 className="upload-button"
