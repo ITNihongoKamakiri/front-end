@@ -339,3 +339,23 @@
       height: 80px;
   }
 }
+
+
+/* Thêm vào cuối file */
+
+.apartment-title-container {
+  max-width: 1280px;
+  margin: 0 auto 1.5rem;
+  padding: 1rem;
+  background-color: #f9fafb;
+  border-radius: 0.5rem;
+  border: 1px solid #e5e7eb;
+}
+
+.apartment-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #111827;
+  margin: 0;
+  text-align: left;
+}

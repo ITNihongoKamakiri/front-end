@@ -49,8 +49,8 @@ const ApartmentManagement: React.FC = () => {
                     throw new Error('Invalid API response: data is not an array');
                 }
                 const fetchedRooms = res.data
-                    .filter((room: any) => 
-                        room && 
+                    .filter((room: any) =>
+                        room &&
                         typeof room.id === 'number' &&
                         typeof room.roomNumber === 'string' &&
                         typeof room.floor === 'number' &&
@@ -182,7 +182,7 @@ const ApartmentManagement: React.FC = () => {
             if (selectedTab === 'add') {
                 setRooms([...rooms, updatedRoom]);
             } else {
-                setRooms(rooms.map(room => 
+                setRooms(rooms.map(room =>
                     room.id === newRoom.id ? updatedRoom : room
                 ));
             }
@@ -223,16 +223,8 @@ const ApartmentManagement: React.FC = () => {
                     Cảnh báo: Không tìm thấy ID căn hộ. Sử dụng apartmentId mặc định là 1.
                 </div>
             )}
-            <div className="detail-header">
-                <div className="header-left">
-                    <div className="logo">Logo</div>
-                    <h1 className="apartment-title">Quản lý phòng căn hộ {id || '1'}</h1>
-                </div>
-                <div className="header-right">
-                    <button className="icon-button"><User className="h-6 w-6" /></button>
-                    <button className="icon-button"><Mail className="h-6 w-6" /></button>
-                    <button className="logout-button"><LogOut className="h-5 w-5" /><span>Đăng xuất</span></button>
-                </div>
+            <div className="apartment-title-container">
+                <h1 className="apartment-title">Quản lý phòng căn hộ {id || '1'}</h1>
             </div>
 
             <div className="room-management-button">
@@ -311,20 +303,20 @@ const ApartmentManagement: React.FC = () => {
                                 </select>
                             </div>
                             <div className="form-group">
-                            <label>Giá thuê cơ bản:</label>
-                            <input
-                                type="text" // Đổi từ "number" sang "text" để loại bỏ mũi tên
-                                value={newRoom.baseRentAmount || ''} // Cho phép xóa giá trị mặc định
-                                onChange={(e) => {
-                                const value = e.target.value;
-                                setNewRoom({ 
-                                    ...newRoom, 
-                                baseRentAmount: value === '' ? 0 : parseFloat(value) || 0 
-                            });
-                            }}
-                            className="form-input"
-                            placeholder="Nhập giá thuê cơ bản" // Thêm placeholder để hướng dẫn người dùng
-                            />
+                                <label>Giá thuê cơ bản:</label>
+                                <input
+                                    type="text" // Đổi từ "number" sang "text" để loại bỏ mũi tên
+                                    value={newRoom.baseRentAmount || ''} // Cho phép xóa giá trị mặc định
+                                    onChange={(e) => {
+                                        const value = e.target.value;
+                                        setNewRoom({
+                                            ...newRoom,
+                                            baseRentAmount: value === '' ? 0 : parseFloat(value) || 0
+                                        });
+                                    }}
+                                    className="form-input"
+                                    placeholder="Nhập giá thuê cơ bản" // Thêm placeholder để hướng dẫn người dùng
+                                />
                             </div>
                             <div className="form-actions">
                                 <button type="button" className="cancel-button" onClick={closeModal}>Hủy</button>
