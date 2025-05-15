@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { User, Mail, LogOut } from 'lucide-react';
+import { User, Mail, LogOut, Trash2 } from 'lucide-react';
 import { useParams } from 'react-router-dom';
 import '../styles/ApartmentManagement.css';
 
@@ -31,6 +31,8 @@ const ApartmentManagement: React.FC = () => {
         baseRentAmount: 0
     });
     const [isModalVisible, setIsModalVisible] = useState(false);
+    const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
+    const [roomToDelete, setRoomToDelete] = useState<Room | null>(null);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
@@ -39,6 +41,10 @@ const ApartmentManagement: React.FC = () => {
             setError('Không tìm thấy ID tòa nhà.');
             return;
         }
+        fetchRooms();
+    }, [id]);
+
+    const fetchRooms = () => {
         fetch(`http://localhost:8080/api/rooms?buildingId=${id}`)
             .then(res => {
                 if (!res.ok) throw new Error(`Failed to fetch rooms: ${res.statusText}`);
@@ -70,7 +76,7 @@ const ApartmentManagement: React.FC = () => {
                 console.error('Error fetching rooms:', err);
                 setError('Không thể tải danh sách phòng. Vui lòng thử lại sau.');
             });
-    }, [id]);
+    };
 
     const filteredRooms = selectedFloor === 'all'
         ? rooms
@@ -216,6 +222,46 @@ const ApartmentManagement: React.FC = () => {
         setError(null);
     };
 
+    const handleOpenDeleteModal = (room: Room, e?: React.MouseEvent) => {
+        if (e) e.stopPropagation(); // Prevent room click event if event exists
+        setRoomToDelete(room);
+        setIsDeleteModalVisible(true);
+    };
+
+    const closeDeleteModal = () => {
+        setIsDeleteModalVisible(false);
+        setRoomToDelete(null);
+    };
+
+    const handleDeleteRoom = async () => {
+        if (!roomToDelete) return;
+
+        try {
+            const response = await fetch(`http://localhost:8080/api/rooms/${roomToDelete.id}`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            if (!response.ok) {
+                let errorMessage = response.statusText;
+                try {
+                    const errorData = await response.json();
+                    errorMessage = errorData.message || errorData.error || JSON.stringify(errorData);
+                } catch (jsonError) {
+                    console.error('Failed to parse error response:', jsonError);
+                }
+                throw new Error(`Failed to delete room: ${errorMessage}`);
+            }
+
+            // Remove the deleted room from the state
+            setRooms(rooms.filter(room => room.id !== roomToDelete.id));
+            closeDeleteModal();
+        } catch (err: any) {
+            console.error('Error deleting room:', err);
+            setError(`Lỗi xóa phòng: ${err.message}`);
+        }
+    };
+
     return (
         <div className="apartment-detail-container">
             {id === undefined && (
@@ -305,8 +351,8 @@ const ApartmentManagement: React.FC = () => {
                             <div className="form-group">
                                 <label>Giá thuê cơ bản:</label>
                                 <input
-                                    type="text" // Đổi từ "number" sang "text" để loại bỏ mũi tên
-                                    value={newRoom.baseRentAmount || ''} // Cho phép xóa giá trị mặc định
+                                    type="text"
+                                    value={newRoom.baseRentAmount || ''}
                                     onChange={(e) => {
                                         const value = e.target.value;
                                         setNewRoom({
@@ -315,7 +361,7 @@ const ApartmentManagement: React.FC = () => {
                                         });
                                     }}
                                     className="form-input"
-                                    placeholder="Nhập giá thuê cơ bản" // Thêm placeholder để hướng dẫn người dùng
+                                    placeholder="Nhập giá thuê cơ bản"
                                 />
                             </div>
                             <div className="form-actions">
@@ -323,6 +369,25 @@ const ApartmentManagement: React.FC = () => {
                                 <button type="submit" className="submit-button">Lưu</button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {isDeleteModalVisible && roomToDelete && (
+                <div className="modal-overlay">
+                    <div className="modal-content">
+                        <div className="modal-header">
+                            <h2>Xác nhận xóa phòng</h2>
+                            <button className="close-button" onClick={closeDeleteModal}>×</button>
+                        </div>
+                        <div className="delete-confirmation">
+                            <p>Bạn có chắc chắn muốn xóa phòng <strong>{roomToDelete.roomNumber}</strong> tầng <strong>{roomToDelete.floor}</strong>?</p>
+                            <p className="warning">Lưu ý: Hành động này không thể hoàn tác!</p>
+                            <div className="form-actions">
+                                <button type="button" className="cancel-button" onClick={closeDeleteModal}>Hủy</button>
+                                <button type="button" className="delete-confirm-button" onClick={handleDeleteRoom}>Xóa</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}
@@ -335,14 +400,24 @@ const ApartmentManagement: React.FC = () => {
                             {filteredRooms
                                 .filter((room) => room.floor === floor)
                                 .map((room) => (
-                                    <div
-                                        key={room.id}
-                                        className="room-item"
-                                        onClick={() => (window.location.href = `/tenants/${room.id}`)}
-                                        style={{ borderColor: getRoomStatusColor(room.status) }}
-                                    >
-                                        <div className="room-door"><div className="door-handle"></div></div>
-                                        <p className="room-number">{room.roomNumber}</p>
+                                    <div key={room.id} className="room-wrapper">
+                                        <div className="room-header">
+                                            <button
+                                                className="delete-button"
+                                                onClick={() => handleOpenDeleteModal(room)}
+                                                aria-label="Xóa phòng"
+                                            >
+                                                <Trash2 size={18} color="#ef4444" />
+                                            </button>
+                                        </div>
+                                        <div
+                                            className="room-item"
+                                            onClick={() => (window.location.href = `/tenants/${room.id}`)}
+                                            style={{ borderColor: getRoomStatusColor(room.status) }}
+                                        >
+                                            <div className="room-door"><div className="door-handle"></div></div>
+                                            <p className="room-number">{room.roomNumber}</p>
+                                        </div>
                                     </div>
                                 ))}
                         </div>
