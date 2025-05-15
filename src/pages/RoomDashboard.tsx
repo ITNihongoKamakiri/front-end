@@ -82,7 +82,6 @@ const RoomDashboard: React.FC = () => {
           {roomInfo && (
             <div className="room-info">
               <h3 className="room-name">{roomInfo.name}</h3>
-              <div className="room-status">{roomInfo.status}</div>
             </div>
           )}
         </div>
