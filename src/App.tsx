@@ -3,7 +3,11 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import ApartmentListings from './pages/dashboard';
 import ApartmentManagement from './pages/ApartmentManagement';
 import TenantManagement from './pages/TenantManagement';
+
 import Layout from './components/Layout';
+
+import ContractManagementInterface from './pages/ContractManagement';
+
 
 const App: React.FC = () => {
   return (
@@ -14,6 +18,7 @@ const App: React.FC = () => {
           <Route path="/dashboard" element={<ApartmentListings />} />
           <Route path="/apartments/:id" element={<ApartmentManagement />} />
           <Route path="/tenants/:id" element={<TenantManagement />} />
+          <Route path="/contract/:id" element={<ContractManagementInterface/>} />
           {/* Add other routes here */}
         </Route>
       </Routes>
