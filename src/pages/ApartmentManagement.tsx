@@ -400,24 +400,24 @@ const ApartmentManagement: React.FC = () => {
                             {filteredRooms
                                 .filter((room) => room.floor === floor)
                                 .map((room) => (
-                                    <div key={room.id} className="room-wrapper">
-                                        <div className="room-header">
-                                            <button
-                                                className="delete-button"
-                                                onClick={() => handleOpenDeleteModal(room)}
-                                                aria-label="Xóa phòng"
-                                            >
-                                                <Trash2 size={18} color="#ef4444" />
-                                            </button>
+                                    <div
+                                        key={room.id}
+                                        className="room-item"
+                                        onClick={() => (window.location.href = `/tenants/${room.id}`)}
+                                        style={{ borderColor: getRoomStatusColor(room.status) }}
+                                    >
+                                        <div className="room-door">
+                                            <div className="door-handle"></div>
                                         </div>
-                                        <div
-                                            className="room-item"
-                                            onClick={() => (window.location.href = `/tenants/${room.id}`)}
-                                            style={{ borderColor: getRoomStatusColor(room.status) }}
+                                        <p className="room-number">{room.roomNumber}</p>
+
+                                        {/* Nút xóa */}
+                                        <button
+                                            className="delete-button"
+                                            onClick={(e) => handleOpenDeleteModal(room, e)}
                                         >
-                                            <div className="room-door"><div className="door-handle"></div></div>
-                                            <p className="room-number">{room.roomNumber}</p>
-                                        </div>
+                                            <Trash2 size={18} />
+                                        </button>
                                     </div>
                                 ))}
                         </div>

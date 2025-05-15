@@ -179,6 +179,20 @@
   font-weight: 600;
   color: #374151;
 }
+.delete-button {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  background-color: white;
+  border: none;
+  border-radius: 50%;
+  padding: 5px;
+  cursor: pointer;
+}
+
+.delete-button svg { /* Style the Trash2 icon */
+  color: red;
+}
 
 /* Modal */
 .modal-overlay {
