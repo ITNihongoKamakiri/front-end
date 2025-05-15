@@ -11,7 +11,7 @@ import {
   createContract
 } from '../service/contract.service';
 import { uploadImageToCloudinary } from '../service/cloudinary.service';
-import { createTenant, TenantCreateRequest, getAllTenants, Tenant } from '../service/tenant.service';
+import { createTenant, TenantCreateRequest, getAllTenants, Tenant, getTenantById } from '../service/tenant.service';
 import { handleApiError, showSuccessToast } from '../utils/apiErrorHandler';
 
 enum ViewMode {
@@ -46,12 +46,23 @@ const TenantManagement: React.FC<TenantManagementProps> = ({ roomId }) => {
   useEffect(() => {
     const loadTenants = async () => {
       try {
+        const contract = await getContractsByRoomId(roomId);
+        console.log('id ternant:', contract[0]['tenantId']);
         setLoading(true);
-        const data = await getAllTenants();
-        setTenants(data);
-        if (data.length > 0) {
-          setSelectedTenantId(data[0].id);
+        // Kiểm tra và chuyển đổi tenantId
+        const tenantIdRaw = contract[0]['tenantId'];
+        if (tenantIdRaw === undefined || tenantIdRaw === null) {
+          throw new Error('Không tìm thấy thông tin người thuê');
         }
+
+        const tenantId = parseInt(String(tenantIdRaw), 10);
+
+        const data = await getTenantById(tenantId);
+        setTenants([data]);
+        // if (data.length > 0) {
+        //   setSelectedTenantId(data[0].id);
+        // }
+        setSelectedTenantId(tenantId);
       } catch (error) {
         console.error('Lỗi khi lấy danh sách người thuê:', error);
         handleApiError(error, 'Không thể tải danh sách người thuê');
@@ -62,6 +73,7 @@ const TenantManagement: React.FC<TenantManagementProps> = ({ roomId }) => {
 
     loadTenants();
   }, []);
+  
 
   const selectedTenant = tenants.find(t => t.id === selectedTenantId) || null;
 
