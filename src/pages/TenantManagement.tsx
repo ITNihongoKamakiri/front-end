@@ -11,30 +11,8 @@ import {
   createContract
 } from '../service/contract.service';
 import { uploadImageToCloudinary } from '../service/cloudinary.service';
-import { createTenant, TenantCreateRequest } from '../service/tenant.service';
-
-interface Tenant {
-  id: number;
-  fullName: string;
-  avatar?: string;
-  gender?: 'MALE' | 'FEMALE' | 'OTHER';
-  idCardNumber?: string;
-  permanentAddress: string;
-  phoneNumber: string;
-}
-
-const getGenderLabel = (gender?: string): string => {
-  switch (gender) {
-    case 'MALE':
-      return 'Nam';
-    case 'FEMALE':
-      return 'Nữ';
-    case 'OTHER':
-      return 'Khác';
-    default:
-      return 'Không rõ';
-  }
-};
+import { createTenant, TenantCreateRequest, getAllTenants, Tenant } from '../service/tenant.service';
+import { handleApiError, showSuccessToast } from '../utils/apiErrorHandler';
 
 enum ViewMode {
   TENANT = 'tenant',
@@ -42,36 +20,14 @@ enum ViewMode {
 }
 
 interface TenantManagementProps {
-  roomId?: number;
+  roomId: number;
 }
 
-const TenantManagement: React.FC<TenantManagementProps> = ({ roomId: propRoomId }) => {
+const TenantManagement: React.FC<TenantManagementProps> = ({ roomId }) => {
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [selectedTenantId, setSelectedTenantId] = useState<number | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
-
-  const [viewMode, setViewMode] = useState<ViewMode>(ViewMode.TENANT);
-  const [contracts, setContracts] = useState<ContractResponse[]>([]);
-  const [contractLoading, setContractLoading] = useState<boolean>(false);
-  const [contractError, setContractError] = useState<string | null>(null);
-  const [newContract, setNewContract] = useState<ContractCreateRequest>({
-    roomId: 0,
-    representativeTenantId: 0,
-    startDate: new Date().toISOString().split('T')[0],
-    endDate: new Date(new Date().setMonth(new Date().getMonth() + 12)).toISOString().split('T')[0],
-    depositAmount: 0,
-    contractNotes: ''
-  });
-
-
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // Lấy roomId từ URL hoặc props
-  const { id } = useParams<{ id: string }>();
-  const roomId = propRoomId || (id ? parseInt(id) : 0);
+  const [tenantError, setTenantError] = useState<string | null>(null);
 
   const [isAddTenantModalOpen, setIsAddTenantModalOpen] = useState<boolean>(false);
   const [newTenant, setNewTenant] = useState<TenantCreateRequest>({
@@ -81,168 +37,49 @@ const TenantManagement: React.FC<TenantManagementProps> = ({ roomId: propRoomId 
     gender: 'MALE',
     idCardNumber: ''
   });
-  const [tenantError, setTenantError] = useState<string | null>(null);
   const [isCreatingTenant, setIsCreatingTenant] = useState<boolean>(false);
 
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   useEffect(() => {
-    axios.get('http://localhost:8080/api/tenants')
-      .then(res => {
-        setTenants(res.data);
-        if (res.data.length > 0) {
-          setSelectedTenantId(res.data[0].id);
-
-          // Set representative tenant id for new contract
-          setNewContract(prev => ({
-            ...prev,
-            representativeTenantId: res.data[0].id,
-            roomId: roomId
-          }));
+    const loadTenants = async () => {
+      try {
+        setLoading(true);
+        const data = await getAllTenants();
+        setTenants(data);
+        if (data.length > 0) {
+          setSelectedTenantId(data[0].id);
         }
-      })
-      .catch(err => {
-        console.error('Lỗi khi lấy danh sách người thuê:', err);
-      })
-      .finally(() => {
+      } catch (error) {
+        console.error('Lỗi khi lấy danh sách người thuê:', error);
+        handleApiError(error, 'Không thể tải danh sách người thuê');
+      } finally {
         setLoading(false);
-      });
-  }, [roomId]);
-
-  const selectedTenant = tenants.find(t => t.id === selectedTenantId);
-
-  const loadContracts = async () => {
-    if (!roomId) return;
-
-    setContractLoading(true);
-    setContractError(null);
-
-    try {
-      const data = await getContractsByRoomId(roomId);
-      setContracts(data);
-    } catch (error) {
-      console.error('Lỗi khi lấy danh sách hợp đồng:', error);
-      setContractError('Không thể tải danh sách hợp đồng. Vui lòng thử lại sau.');
-    } finally {
-      setContractLoading(false);
-    }
-  };
-
-  const handleSwitchView = (mode: ViewMode) => {
-    setViewMode(mode);
-
-    if (mode === ViewMode.CONTRACT) {
-      loadContracts();
-    }
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    // Kiểm tra loại file
-    if (!file.type.match('image.*')) {
-      setContractError('Vui lòng chọn file hình ảnh (jpg, png, gif, etc.)');
-      return;
-    }
-
-    // Giới hạn kích thước file (5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      setContractError('Kích thước file không được vượt quá 5MB');
-      return;
-    }
-
-    // Lưu file đã chọn
-    setSelectedFile(file);
-
-    // Tạo URL preview
-    const fileReader = new FileReader();
-    fileReader.onload = () => {
-      setPreviewUrl(fileReader.result as string);
-    };
-    fileReader.readAsDataURL(file);
-
-    // Xóa thông báo lỗi
-    setContractError(null);
-  };
-
-  const handleImageClick = () => {
-    if (fileInputRef.current) {
-      fileInputRef.current.click();
-    }
-  };
-
-  const handleContractInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setNewContract(prev => ({
-      ...prev,
-      [name]: name === 'depositAmount' ? parseFloat(value) : value
-    }));
-  };
-
-
-  const handleContractSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-    setContractError(null);
-
-    try {
-      // Upload image if selected
-      let contractImageUrl = '';
-      if (selectedFile) {
-        contractImageUrl = await uploadImageToCloudinary(selectedFile);
       }
+    };
 
-      // Create contract data
-      const contractData: ContractCreateRequest = {
-        ...newContract,
-        contractImageUrl
-      };
+    loadTenants();
+  }, []);
 
-      // Submit form
-      await createContract(contractData);
+  const selectedTenant = tenants.find(t => t.id === selectedTenantId) || null;
 
-      // Reload contracts list
-      loadContracts();
-
-      // Reset form
-      setPreviewUrl(null);
-      setSelectedFile(null);      setNewContract({
-        roomId: roomId,
-        representativeTenantId: selectedTenantId || 0,
-        startDate: new Date().toISOString().split('T')[0],
-        endDate: new Date(new Date().setMonth(new Date().getMonth() + 12)).toISOString().split('T')[0],
-        depositAmount: 0,
-        contractNotes: ''
-      });
-
-    } catch (error: any) {
-      console.error('Lỗi khi tạo hợp đồng:', error);
-      setContractError(
-        error.response?.data?.message ||
-        'Có lỗi xảy ra khi tạo hợp đồng. Vui lòng thử lại.'
-      );
-    } finally {
-      setIsSubmitting(false);
-    }
+  const handleTenantSelect = (id: number) => {
+    setSelectedTenantId(id);
   };
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('vi-VN');
-  };
-
-
-  const isNearExpiry = (endDate: string) => {
-    const today = new Date();
-    const expiryDate = new Date(endDate);
-    const diffTime = expiryDate.getTime() - today.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays <= 30 && diffDays >= 0;
-  };
-
-
-    const handleOpenAddTenantModal = () => {
+  const handleOpenAddTenantModal = () => {
     setIsAddTenantModalOpen(true);
-    setTenantError(null);
+    resetNewTenantForm();
+  };
+
+  const handleCloseAddTenantModal = () => {
+    setIsAddTenantModalOpen(false);
+    resetNewTenantForm();
+  };
+
+  const resetNewTenantForm = () => {
     setNewTenant({
       fullName: '',
       phoneNumber: '',
@@ -250,13 +87,12 @@ const TenantManagement: React.FC<TenantManagementProps> = ({ roomId: propRoomId 
       gender: 'MALE',
       idCardNumber: ''
     });
+    setSelectedFile(null);
+    setPreviewUrl(null);
+    setTenantError(null);
   };
 
-    const handleCloseAddTenantModal = () => {
-    setIsAddTenantModalOpen(false);
-  };
-
-    const handleTenantInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleNewTenantChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setNewTenant(prev => ({
       ...prev,
@@ -264,458 +100,358 @@ const TenantManagement: React.FC<TenantManagementProps> = ({ roomId: propRoomId 
     }));
   };
 
-   const handleTenantSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsCreatingTenant(true);
-    setTenantError(null);
+  const handleFileSelect = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
 
-    try {
-      // Validate dữ liệu
-      if (!newTenant.fullName || !newTenant.phoneNumber || !newTenant.permanentAddress) {
-        setTenantError('Vui lòng nhập đầy đủ thông tin bắt buộc');
-        setIsCreatingTenant(false);
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Kiểm tra kích thước file (tối đa 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        handleApiError(new Error('Kích thước file không được vượt quá 5MB'));
         return;
       }
+      
+      // Kiểm tra định dạng file
+      if (!file.type.match('image.*')) {
+        handleApiError(new Error('Vui lòng chọn file hình ảnh (jpg, png, gif, etc.)'));
+        return;
+      }
+      
+      setSelectedFile(file);
+      
+      // Tạo URL tạm thời để xem trước
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setPreviewUrl(e.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
-      // Gọi API tạo người thuê mới
-      const createdTenant = await createTenant(newTenant);
+  const validatePhoneNumber = (phoneNumber: string): boolean => {
+    // Kiểm tra số điện thoại Việt Nam
+    const phoneRegex = /^(0|\+84)(\d{9,10})$/;
+    return phoneRegex.test(phoneNumber);
+  };
+
+  const validateIdCardNumber = (idCardNumber: string): boolean => {
+    // Kiểm tra CMND/CCCD (9 hoặc 12 số)
+    const idRegex = /^\d{9}(\d{3})?$/;
+    return idRegex.test(idCardNumber);
+  };
+
+  const handleCreateTenant = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setTenantError(null);
+    
+    // Kiểm tra dữ liệu đầu vào
+    if (!newTenant.fullName.trim()) {
+      setTenantError('Vui lòng nhập họ tên người thuê');
+      return;
+    }
+    
+    if (!validatePhoneNumber(newTenant.phoneNumber)) {
+      setTenantError('Số điện thoại không hợp lệ');
+      return;
+    }
+    
+    if (newTenant.idCardNumber && !validateIdCardNumber(newTenant.idCardNumber)) {
+      setTenantError('Số CMND/CCCD không hợp lệ (phải có 9 hoặc 12 số)');
+      return;
+    }
+    
+    setIsCreatingTenant(true);
+    
+    try {
+      // Upload avatar if selected
+      let avatarUrl = '';
+      if (selectedFile) {
+        avatarUrl = await uploadImageToCloudinary(selectedFile);
+      }
       
-      // Thêm người thuê mới vào danh sách
+      const tenantData = {
+        ...newTenant,
+        avatar: avatarUrl
+      };
+      
+      const createdTenant = await createTenant(tenantData);
+      
+      // Update tenants list
       setTenants(prev => [...prev, createdTenant]);
-      
-      // Cập nhật selectedTenantId và representativeTenantId trong newContract
       setSelectedTenantId(createdTenant.id);
-      setNewContract(prev => ({
-        ...prev,
-        representativeTenantId: createdTenant.id
-      }));
       
-      // Đóng modal
+      // Close modal and reset form
       handleCloseAddTenantModal();
-      
-    } catch (error: any) {
-      console.error('Lỗi khi tạo người thuê mới:', error);
-      setTenantError(error.message || 'Có lỗi xảy ra khi tạo người thuê mới');
+      showSuccessToast('Tạo người thuê mới thành công');
+    } catch (error) {
+      console.error('Lỗi khi tạo người thuê:', error);
+      handleApiError(error, 'Có lỗi xảy ra khi tạo người thuê');
     } finally {
       setIsCreatingTenant(false);
     }
   };
 
+  const getGenderLabel = (gender?: string): string => {
+    switch (gender) {
+      case 'MALE':
+        return 'Nam';
+      case 'FEMALE':
+        return 'Nữ';
+      case 'OTHER':
+        return 'Khác';
+      default:
+        return 'Không xác định';
+    }
+  };
+
+  if (loading) {
+    return <div className="loading">Đang tải thông tin người thuê...</div>;
+  }
 
   return (
-    <div className="tenant-content">
-      {viewMode === ViewMode.TENANT ? (
-        // Nội dung quản lý người thuê
-        <div className="content-wrapper">
-          {/* Danh sách người thuê */}
-          <div className="tenants-list">
-            {loading ? (
-              <div>Đang tải danh sách...</div>
-            ) : tenants.length === 0 ? (
-              <div>Không có người thuê nào</div>
+    <div className="tenant-management">
+      <div className="tenant-container">
+        {/* Tenant List Panel */}
+        <div className="tenant-list-panel">
+          <div className="panel-header">
+            <h3>Danh sách người thuê</h3>
+            <button className="add-tenant-btn" onClick={handleOpenAddTenantModal}>
+              <Plus size={18} />
+              <span>Thêm người thuê</span>
+            </button>
+          </div>
+
+          <div className="tenant-list">
+            {tenants.length === 0 ? (
+              <div className="no-tenants">Chưa có người thuê nào</div>
             ) : (
-              tenants.map((tenant, index) => (
+              tenants.map(tenant => (
                 <div
                   key={tenant.id}
-                  className={`tenant-list-item ${tenant.id === selectedTenantId ? 'active' : ''}`}
-                  onClick={() => setSelectedTenantId(tenant.id)}
+                  className={`tenant-card ${selectedTenantId === tenant.id ? 'selected' : ''}`}
+                  onClick={() => handleTenantSelect(tenant.id)}
                 >
-                  Người {index + 1}
+                  <div className="tenant-avatar">
+                    {tenant.avatar ? (
+                      <img src={tenant.avatar} alt={tenant.fullName} />
+                    ) : (
+                      <div className="avatar-placeholder">
+                        <User size={24} />
+                      </div>
+                    )}
+                  </div>
+                  <div className="tenant-card-info">
+                    <div className="tenant-name">{tenant.fullName}</div>
+                    <div className="tenant-phone">{tenant.phoneNumber}</div>
+                  </div>
                 </div>
               ))
             )}
           </div>
+        </div>
 
-          {/* Chi tiết người thuê */}
-          <div className="tenant-details">
-            {selectedTenant ? (
-              <>
-                <div className="tenant-info">
-                  <div className="tenant-info-field">
-                    <label>Họ và Tên</label>
-                    <div className="info-value">{selectedTenant.fullName}</div>
+        {/* Tenant Details Panel */}
+        <div className="tenant-details-panel">
+          {selectedTenant ? (
+            <>
+              <div className="panel-header">
+                <h3>Thông tin chi tiết</h3>
+              </div>
+              
+              <div className="tenant-details">
+                <div className="tenant-profile">
+                  <div className="tenant-avatar-large">
+                    {selectedTenant.avatar ? (
+                      <img src={selectedTenant.avatar} alt={selectedTenant.fullName} />
+                    ) : (
+                      <div className="avatar-placeholder-large">
+                        <User size={64} />
+                      </div>
+                    )}
                   </div>
-
+                  <h2 className="tenant-name-large">{selectedTenant.fullName}</h2>
+                </div>
+                
+                <div className="tenant-info-grid">
                   <div className="tenant-info-field">
-                    <label>Địa chỉ</label>
-                    <div className="info-value">{selectedTenant.permanentAddress}</div>
-                  </div>
-
-                  <div className="tenant-info-field">
-                    <label>SĐT</label>
+                    <label>Số điện thoại</label>
                     <div className="info-value">{selectedTenant.phoneNumber}</div>
                   </div>
-
+                  
+                  <div className="tenant-info-field">
+                    <label>Địa chỉ thường trú</label>
+                    <div className="info-value">{selectedTenant.permanentAddress}</div>
+                  </div>
+                  
                   <div className="tenant-info-field">
                     <label>Số CMND/CCCD</label>
                     <div className="info-value">{selectedTenant.idCardNumber || 'Chưa có'}</div>
                   </div>
-
+                  
                   <div className="tenant-info-field">
                     <label>Giới tính</label>
                     <div className="info-value">{getGenderLabel(selectedTenant.gender)}</div>
                   </div>
                 </div>
-
-                <div className="tenant-photo">
-                  <div className="photo-container">
-                    {selectedTenant.avatar ? (
-                      <img src={selectedTenant.avatar} alt={selectedTenant.fullName} />
-                    ) : (
-                      <div className="default-photo">
-                        <User size={48} />
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </>
-            ) : (
-              <div>Chưa có người thuê được chọn</div>
-            )}
-          </div>
-        </div>
-      ) : (
-        // Nội dung quản lý hợp đồng
-        <div className="contract-content">
-          {contractError && <div className="error-message">{contractError}</div>}
-
-          {contractLoading ? (
-            <div className="loading">Đang tải thông tin hợp đồng...</div>
-          ) : contracts.length > 0 ? (
-            // Hiển thị thông tin hợp đồng
-            <div className="contract-details">
-              {/* Left part - image placeholder */}
-              <div className="contract-image-section">
-                <div
-                  className="image-container"
-                  onClick={handleImageClick}
-                >
-                  {contracts[0].contractImage ? (
-                    <img
-                      src={contracts[0].contractImage}
-                      alt="Contract document"
-                      className="contract-image"
-                    />
-                  ) : (
-                    <div className="image-placeholder">
-                      <Calendar size={48} />
-                      <div className="upload-overlay">
-                        <span>Click để cập nhật ảnh</span>
-                      </div>
-                    </div>
-                  )}
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    onChange={handleFileChange}
-                    accept="image/*"
-                    className="hidden-input"
-                  />
-                </div>
-
-                {/* Edit button */}
-                <div className="edit-button-container">
-                  <button
-                    className="edit-button"
-                    onClick={handleImageClick}
-                  >
-                    Thay đổi
+                
+                <div className="tenant-actions">
+                  <button className="edit-tenant-btn">
+                    Chỉnh sửa thông tin
                   </button>
                 </div>
               </div>
-
-              {/* Right part - contract information */}
-              <div className="contract-info-section">
-                <div className="contract-basic-info">
-                  <p>Người đại diện: {contracts[0].tenantName}</p>
-                  <p>Tên chung cư: {contracts[0].buildingName}</p>
-                  <p>Số phòng: {contracts[0].roomNumber}</p>
-                </div>
-
-                {/* Expiry date */}
-                <div className="expiry-container">
-                  <div className="expiry-date">
-                    <div>Ngày hết hạn: {formatDate(contracts[0].endDate)}</div>
-                  </div>
-
-                  {isNearExpiry(contracts[0].endDate) && (
-                    <div className="expiry-warning">
-                      <AlertTriangle size={16} className="warning-icon" />
-                      <span>Sắp hết hạn</span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Renewal section */}
-                <div className="renewal-section">
-                  <h3 className="renewal-title">Cập nhật gia hạn</h3>
-
-                  {/* Extension input */}
-                  <div className="extension-input">
-                    <div className="input-label">Gia hạn thêm:</div>
-                    <input
-                      type="number"
-                      className="days-input"
-                      min="0"
-                      defaultValue="30"
-                    />
-                    <div className="days-label">(ngày)</div>
-                  </div>
-
-                  {/* Update button */}
-                  <div className="update-button-container">
-                    <button className="update-button">
-                      Cập nhật
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
+            </>
           ) : (
-            // Hiển thị form tạo hợp đồng mới
-            <div className="create-contract-form">
-              <h2 className="form-title">Tạo hợp đồng mới</h2>
-              
-              {contractError && <div className="error-message">{contractError}</div>}
-              
-              <form onSubmit={handleContractSubmit}>
-                <div className="form-group">
-                  <label htmlFor="representativeTenantId">Người đại diện <span className="required">*</span></label>
-                  <div className="representative-selector">
-                    <select
-                      id="representativeTenantId"
-                      name="representativeTenantId"
-                      value={newContract.representativeTenantId}
-                      onChange={handleContractInputChange}
-                      className="form-control representative-select"
-                      required
-                    >
-                      <option value="">Chọn người đại diện</option>
-                      {tenants.map(tenant => (
-                        <option key={tenant.id} value={tenant.id}>
-                          {tenant.fullName}
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      type="button"
-                      className="add-tenant-button"
-                      onClick={handleOpenAddTenantModal}
-                    >
-                      <Plus size={16} />
-                      Thêm mới
-                    </button>
-                  </div>
-                </div>
-                
-                <div className="form-group">
-                  <label htmlFor="startDate">Ngày bắt đầu <span className="required">*</span></label>
-                  <input
-                    type="date"
-                    id="startDate"
-                    name="startDate"
-                    value={newContract.startDate}
-                    onChange={handleContractInputChange}
-                    className="form-control"
-                    required
-                  />
-                </div>
-                
-                <div className="form-group">
-                  <label htmlFor="endDate">Ngày kết thúc <span className="required">*</span></label>
-                  <input
-                    type="date"
-                    id="endDate"
-                    name="endDate"
-                    value={newContract.endDate}
-                    onChange={handleContractInputChange}
-                    className="form-control"
-                    required
-                  />
-                </div>
-                
-                <div className="form-group">
-                  <label htmlFor="depositAmount">Tiền đặt cọc (VNĐ) <span className="required">*</span></label>
-                  <input
-                    type="number"
-                    id="depositAmount"
-                    name="depositAmount"
-                    value={newContract.depositAmount}
-                    onChange={handleContractInputChange}
-                    min="0"
-                    className="form-control"
-                    required
-                  />
-                </div>
-                
-                <div className="form-group">
-                  <label htmlFor="contractNotes">Ghi chú</label>
-                  <textarea
-                    id="contractNotes"
-                    name="contractNotes"
-                    value={newContract.contractNotes}
-                    onChange={handleContractInputChange}
-                    className="form-control"
-                    rows={3}
-                  />
-                </div>
-                
-                <div className="form-group">
-                  <label>Hình ảnh hợp đồng (nếu có)</label>
-                  <div 
-                    className="image-upload-container"
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    <input
-                      type="file"
-                      ref={fileInputRef}
-                      onChange={handleFileChange}
-                      accept="image/*"
-                      className="hidden-input"
-                    />
-                    
-                    {previewUrl ? (
-                      <div className="image-upload-preview">
-                        <img src={previewUrl} alt="Preview" />
-                      </div>
-                    ) : (
-                      <div className="upload-placeholder">
-                        <Upload size={32} />
-                        <p>Click để chọn ảnh</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="form-actions">
-                  <button
-                    type="button"
-                    className="cancel-button"
-                    onClick={() => setViewMode(ViewMode.TENANT)}
-                  >
-                    Hủy
-                  </button>
-                  <button
-                    type="submit"
-                    className="submit-button"
-                    disabled={isSubmitting}
-                  >
-                    {isSubmitting ? 'Đang xử lý...' : 'Tạo hợp đồng'}
-                  </button>
-                </div>
-              </form>
+            <div className="no-tenant-selected">
+              <User size={64} />
+              <p>Chọn một người thuê để xem thông tin chi tiết</p>
             </div>
           )}
         </div>
-      )}
+      </div>
 
-
-
-      {/* Modal thêm người thuê mới */}
-      {isAddTenantModalOpen &&
+      {/* Add Tenant Modal */}
+      {isAddTenantModalOpen && (
         <div className="modal-overlay">
-          <div className="modal-container tenant-modal">
+          <div className="tenant-modal">
             <div className="modal-header">
-              <h2>Thêm người thuê mới</h2>
+              <h3>Thêm người thuê mới</h3>
               <button className="close-button" onClick={handleCloseAddTenantModal}>
                 <X size={20} />
               </button>
             </div>
-            <div className="modal-body">
-              {tenantError && <div className="error-message">{tenantError}</div>}
+            
+            {tenantError && (
+              <div className="error-message">
+                <AlertTriangle size={16} />
+                {tenantError}
+              </div>
+            )}
+            
+            <form onSubmit={handleCreateTenant} className="tenant-form">
+              <div className="avatar-upload">
+                <div
+                  className="avatar-preview"
+                  onClick={handleFileSelect}
+                >
+                  {previewUrl ? (
+                    <img src={previewUrl} alt="Avatar preview" />
+                  ) : (
+                    <div className="avatar-placeholder">
+                      <User size={40} />
+                      <span>Tải lên ảnh</span>
+                    </div>
+                  )}
+                </div>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  style={{ display: 'none' }}
+                  accept="image/*"
+                  onChange={handleFileChange}
+                />
+              </div>
               
-              <form onSubmit={handleTenantSubmit}>
-                <div className="form-group">
-                  <label htmlFor="fullName">Họ và tên <span className="required">*</span></label>
-                  <input
-                    type="text"
-                    id="fullName"
-                    name="fullName"
-                    value={newTenant.fullName}
-                    onChange={handleTenantInputChange}
-                    placeholder="Nhập họ và tên"
-                    required
-                    className="form-control"
-                  />
-                </div>
-                
-                <div className="form-group">
-                  <label htmlFor="idCardNumber">Số CMND/CCCD</label>
-                  <input
-                    type="text"
-                    id="idCardNumber"
-                    name="idCardNumber"
-                    value={newTenant.idCardNumber || ''}
-                    onChange={handleTenantInputChange}
-                    placeholder="Nhập số CMND/CCCD"
-                    className="form-control"
-                  />
-                </div>
-                
-                <div className="form-group">
-                  <label htmlFor="permanentAddress">Địa chỉ thường trú <span className="required">*</span></label>
-                  <input
-                    type="text"
-                    id="permanentAddress"
-                    name="permanentAddress"
-                    value={newTenant.permanentAddress}
-                    onChange={handleTenantInputChange}
-                    placeholder="Nhập địa chỉ thường trú"
-                    required
-                    className="form-control"
-                  />
-                </div>
-                
-                <div className="form-group">
-                  <label htmlFor="phoneNumber">Số điện thoại <span className="required">*</span></label>
-                  <input
-                    type="tel"
-                    id="phoneNumber"
-                    name="phoneNumber"
-                    value={newTenant.phoneNumber}
-                    onChange={handleTenantInputChange}
-                    placeholder="Nhập số điện thoại"
-                    required
-                    className="form-control"
-                  />
-                </div>
-                
-                <div className="form-group">
-                  <label htmlFor="gender">Giới tính</label>
-                  <select
-                    id="gender"
-                    name="gender"
-                    value={newTenant.gender}
-                    onChange={handleTenantInputChange}
-                    className="form-control"
-                  >
-                    <option value="MALE">Nam</option>
-                    <option value="FEMALE">Nữ</option>
-                    <option value="OTHER">Khác</option>
-                  </select>
-                </div>
-                
-                <div className="form-actions">
-                  <button
-                    type="button"
-                    className="cancel-button"
-                    onClick={handleCloseAddTenantModal}
-                  >
-                    Hủy
-                  </button>
-                  <button
-                    type="submit"
-                    className="submit-button"
-                    disabled={isCreatingTenant}
-                  >
-                    {isCreatingTenant ? 'Đang xử lý...' : 'Thêm người thuê'}
-                  </button>
-                </div>
-              </form>
-            </div>
+              <div className="form-group">
+                <label htmlFor="fullName">
+                  Họ và tên <span className="required">*</span>
+                </label>
+                <input
+                  type="text"
+                  id="fullName"
+                  name="fullName"
+                  className="form-control"
+                  value={newTenant.fullName}
+                  onChange={handleNewTenantChange}
+                  required
+                />
+              </div>
+              
+              <div className="form-group">
+                <label htmlFor="phoneNumber">
+                  Số điện thoại <span className="required">*</span>
+                </label>
+                <input
+                  type="tel"
+                  id="phoneNumber"
+                  name="phoneNumber"
+                  className="form-control"
+                  value={newTenant.phoneNumber}
+                  onChange={handleNewTenantChange}
+                  required
+                />
+              </div>
+              
+              <div className="form-group">
+                <label htmlFor="idCardNumber">
+                  Số CMND/CCCD
+                </label>
+                <input
+                  type="text"
+                  id="idCardNumber"
+                  name="idCardNumber"
+                  className="form-control"
+                  value={newTenant.idCardNumber}
+                  onChange={handleNewTenantChange}
+                />
+              </div>
+              
+              <div className="form-group">
+                <label htmlFor="gender">
+                  Giới tính
+                </label>
+                <select
+                  id="gender"
+                  name="gender"
+                  className="form-control"
+                  value={newTenant.gender}
+                  onChange={handleNewTenantChange}
+                >
+                  <option value="MALE">Nam</option>
+                  <option value="FEMALE">Nữ</option>
+                  <option value="OTHER">Khác</option>
+                </select>
+              </div>
+              
+              <div className="form-group">
+                <label htmlFor="permanentAddress">
+                  Địa chỉ thường trú <span className="required">*</span>
+                </label>
+                <input
+                  type="text"
+                  id="permanentAddress"
+                  name="permanentAddress"
+                  className="form-control"
+                  value={newTenant.permanentAddress}
+                  onChange={handleNewTenantChange}
+                  required
+                />
+              </div>
+              
+              <div className="form-actions">
+                <button
+                  type="button"
+                  className="cancel-button"
+                  onClick={handleCloseAddTenantModal}
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  className="save-button"
+                  disabled={isCreatingTenant}
+                >
+                  {isCreatingTenant ? 'Đang lưu...' : 'Lưu'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
-      }
+      )}
     </div>
   );
 };

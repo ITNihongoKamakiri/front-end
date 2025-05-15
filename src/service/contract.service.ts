@@ -1,24 +1,24 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:8080/api';
+const API_BASE_URL = '/api';
 
 export interface ContractResponse {
-    contractImage: any;
-    contractImageUrl?: string;
     id: number;
-    startDate: string;
-    endDate: string;
-    depositAmount: number;
-    status: string;
-    createdAt: string;
+    tenantId?: number;
+    tenantName?: string;
     roomId: number;
     roomNumber: string;
     buildingId?: number;
     buildingName?: string;
-    tenantId?: number;
-    tenantName?: string;
-    tenantPhone?: string;
+    startDate: string;
+    endDate: string;
+    depositAmount: number;
+    status: string;
+    contractImageUrl?: string;
     contractNotes?: string;
+    contractImage?: string;
+    createdAt?: string;
+    updatedAt?: string;
 }
 
 export interface ContractCreateRequest {
@@ -27,18 +27,18 @@ export interface ContractCreateRequest {
     startDate: string;
     endDate: string;
     depositAmount: number;
-    contractImageUrl?: string;
     contractNotes?: string;
+    contractImageUrl?: string;
 }
 
 export interface ContractUpdateRequest {
     id: number;
-    startDate?: string;
-    endDate?: string;
-    depositAmount?: number;
-    status?: ContractStatus;
-    contractNotes?: string;
-    representativeTenantId?: number;
+    startDate: string;
+    endDate: string;
+    depositAmount: number;
+    status: ContractStatus;
+    contractNotes: string;
+    representativeTenantId: number;
 }
 
 export interface ContractExtendRequest {
@@ -58,7 +58,7 @@ export enum ContractStatus {
 
 export interface ApiResponse<T> {
     success: boolean;
-    status: number;
+    statusCode: number;
     message: string;
     data: T;
 }
@@ -69,10 +69,17 @@ export const getContractsByRoomId = async (roomId: number): Promise<ContractResp
         const response = await axios.get<ApiResponse<ContractResponse[]>>(
             `${API_BASE_URL}/contracts/room/${roomId}`
         );
-        return response.data.success ? response.data.data : [];
-    } catch (error) {
-        console.error('Error fetching contracts:', error);
-        return [];
+        
+        if (!response.data.success) {
+            throw new Error(response.data.message || 'Không thể lấy danh sách hợp đồng');
+        }
+        
+        return response.data.data || [];
+    } catch (error: any) {
+        if (error.response?.data?.message) {
+            throw new Error(error.response.data.message);
+        }
+        throw error;
     }
 };
 
@@ -91,32 +98,44 @@ export const getActiveContractsByRoomId = async (roomId: number): Promise<Contra
 
 // Tạo hợp đồng mới
 export const createContract = async (
-    contractData: ContractCreateRequest
+    contract: ContractCreateRequest
 ): Promise<ContractResponse | null> => {
     try {
         const response = await axios.post<ApiResponse<ContractResponse>>(
             `${API_BASE_URL}/contracts`,
-            contractData
+            contract
         );
-        return response.data.success ? response.data.data : null;
-    } catch (error) {
-        console.error('Error creating contract:', error);
+        
+        if (!response.data.success) {
+            throw new Error(response.data.message || 'Không thể tạo hợp đồng');
+        }
+        
+        return response.data.data;
+    } catch (error: any) {
+        if (error.response?.data?.message) {
+            throw new Error(error.response.data.message);
+        }
         throw error;
     }
 };
 
 // Cập nhật thông tin cơ bản của hợp đồng
 export const updateContract = async (
-    contractData: ContractUpdateRequest
+    contract: ContractUpdateRequest
 ): Promise<ContractResponse | null> => {
     try {
         const response = await axios.put<ApiResponse<ContractResponse>>(
-            `${API_BASE_URL}/contracts`,
-            contractData
+            `${API_BASE_URL}/contracts/${contract.id}`,
+            contract
         );
-        return response.data.success ? response.data.data : null;
+        
+        if (!response.data.success) {
+            throw new Error(response.data.message || 'Không thể cập nhật hợp đồng');
+        }
+        
+        return response.data.data;
     } catch (error: any) {
-        if (error.response && error.response.data && error.response.data.message) {
+        if (error.response?.data?.message) {
             throw new Error(error.response.data.message);
         }
         throw error;
@@ -129,13 +148,18 @@ export const updateContractImage = async (
     imageUrl: string
 ): Promise<ContractResponse | null> => {
     try {
-        const encodedImageUrl = encodeURIComponent(imageUrl);
-        const response = await axios.put<ApiResponse<ContractResponse>>(
-            `${API_BASE_URL}/contracts/${contractId}/image?imageUrl=${encodedImageUrl}`
+        const response = await axios.patch<ApiResponse<ContractResponse>>(
+            `${API_BASE_URL}/contracts/${contractId}/image`,
+            { imageUrl }
         );
-        return response.data.success ? response.data.data : null;
+        
+        if (!response.data.success) {
+            throw new Error(response.data.message || 'Không thể cập nhật ảnh hợp đồng');
+        }
+        
+        return response.data.data;
     } catch (error: any) {
-        if (error.response && error.response.data && error.response.data.message) {
+        if (error.response?.data?.message) {
             throw new Error(error.response.data.message);
         }
         throw error;
@@ -151,9 +175,14 @@ export const extendContract = async (
             `${API_BASE_URL}/contracts/extend`,
             extendData
         );
-        return response.data.success ? response.data.data : null;
+        
+        if (!response.data.success) {
+            throw new Error(response.data.message || 'Không thể gia hạn hợp đồng');
+        }
+        
+        return response.data.data;
     } catch (error: any) {
-        if (error.response && error.response.data && error.response.data.message) {
+        if (error.response?.data?.message) {
             throw new Error(error.response.data.message);
         }
         throw error;

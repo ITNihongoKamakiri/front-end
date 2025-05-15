@@ -2,9 +2,9 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import ApartmentListings from './pages/dashboard';
 import ApartmentManagement from './pages/ApartmentManagement';
-import TenantManagement from './pages/TenantManagement';
-import ContractManagementInterface from './pages/ContractManagement';
 import RoomDashboard from './pages/RoomDashboard';
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 import Layout from './components/Layout';
 
@@ -17,11 +17,21 @@ const App: React.FC = () => {
           <Route path="/dashboard" element={<ApartmentListings />} />
           <Route path="/apartments/:id" element={<ApartmentManagement />} />
           <Route path="/room/:id" element={<RoomDashboard />} />
-          <Route path="/tenants/:id" element={<TenantManagement />} />
-          <Route path="/contract/:id" element={<ContractManagementInterface />} />
+          {/* Không sử dụng trực tiếp TenantManagement và ContractManagement vì cần roomId */}
           {/* Add other routes here */}
         </Route>
       </Routes>
+      <ToastContainer
+        position="top-right"
+        autoClose={5000}
+        hideProgressBar={false}
+        newestOnTop
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+      />
     </BrowserRouter>
   );
 };
