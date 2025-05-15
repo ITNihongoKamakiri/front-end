@@ -1,6 +1,11 @@
+
+//KHÔNG SỬ DỤNG NỮA DO VIẾT CONTRACT NGÀY TRONG TenantManagement RỒI 
+
+
 import React, { useState, useRef } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import '../styles/ContractManagement.css';
+import TenantManagement from './TenantManagement'
 
 // Mock data types
 interface Contract {
