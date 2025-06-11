@@ -28,6 +28,13 @@ export interface ApiResponse<T> {
     data: T;
 }
 
+export interface ApiErrorData {
+    timestamp: string;
+    path: string;
+    error: string;
+    message: string;
+}
+
 export interface ApartmentBuildingUpdateRequest {
     id: number;
     name?: string;
@@ -105,12 +112,22 @@ export const deleteApartmentBuilding = async (id: number): Promise<boolean> => {
         }
 
         console.error('Failed to delete apartment building:', response.data.message);
-        return false;
+        // Ném lỗi với message từ API khi response.success = false
+        throw new Error(response.data.message || 'Không thể xóa căn hộ');
     } catch (error) {
         console.error('Error deleting apartment building:', error);
-        if (axios.isAxiosError(error) && error.response?.status === 409) {
-            // Xử lý lỗi conflict (tòa nhà vẫn có phòng đang hoạt động)
-            throw new Error('Không thể xóa tòa nhà này vì vẫn còn phòng đang hoạt động.');
+        if (axios.isAxiosError(error) && error.response?.data) {
+            // Xử lý lỗi từ API response
+            const apiResponse = error.response.data;
+            
+            // Lấy message từ data.message (message chi tiết từ API)
+            if (apiResponse.data && apiResponse.data.message) {
+                throw new Error(apiResponse.data.message);
+            } 
+            // Fallback về message chính nếu không có data.message
+            else if (apiResponse.message) {
+                throw new Error(apiResponse.message);
+            }
         }
         throw error;
     }

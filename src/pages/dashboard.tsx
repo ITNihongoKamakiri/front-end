@@ -6,6 +6,7 @@ import { ApartmentBuilding, fetchApartmentsByOwner, createApartment, deleteApart
 import { uploadImageToCloudinary } from '../service/cloudinary.service';
 import { Edit } from 'lucide-react';
 import { ApartmentBuildingUpdateRequest, updateApartmentBuilding } from '../service/apartment_building.service';
+import { toast } from 'react-toastify';
 interface Apartment {
   id: string;
   name: string;
@@ -346,26 +347,20 @@ const Dashboard: React.FC = () => {
 
     try {
       setLoading(true);
-      const success = await deleteApartmentBuilding(parseInt(deletingApartment.id));
+      await deleteApartmentBuilding(parseInt(deletingApartment.id));
 
-      if (success) {
-        // Cập nhật state để xóa căn hộ khỏi danh sách
-        setApartments(apartments.filter(apt => apt.id !== deletingApartment.id));
+      // Cập nhật state để xóa căn hộ khỏi danh sách
+      setApartments(apartments.filter(apt => apt.id !== deletingApartment.id));
 
-        // Hiển thị thông báo thành công
-        setSuccessMessage('Xóa căn hộ thành công!');
-
-        // Tự động ẩn thông báo sau 3 giây
-        setTimeout(() => {
-          setSuccessMessage(null);
-        }, 3000);
-      }
+      // Hiển thị thông báo thành công bằng toastify
+      toast.success('Xóa căn hộ thành công!');
 
       // Đóng modal xác nhận
       handleCloseDeleteModal();
 
     } catch (err: any) {
-      setError(err.message || 'Có lỗi xảy ra khi xóa căn hộ. Vui lòng thử lại.');
+      // Hiển thị thông báo lỗi bằng toastify với message từ API
+      toast.error(err.message || 'Có lỗi xảy ra khi xóa căn hộ. Vui lòng thử lại.');
       console.error('Error deleting apartment:', err);
       handleCloseDeleteModal();
     } finally {
